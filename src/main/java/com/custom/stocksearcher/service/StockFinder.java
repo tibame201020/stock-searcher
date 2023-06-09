@@ -9,7 +9,7 @@ import reactor.core.publisher.Flux;
  * 股價查詢Service
  */
 public interface StockFinder {
-    Log LOG = LogFactory.getLog(StockFinder.class);
+    Log log = LogFactory.getLog(StockFinder.class);
 
     /**
      * 查詢股價資訊

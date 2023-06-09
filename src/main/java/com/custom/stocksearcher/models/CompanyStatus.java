@@ -11,6 +11,7 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 
 /**
  * 公司股票代號bean
@@ -33,5 +34,10 @@ public class CompanyStatus implements Serializable {
      */
     @Field(type = FieldType.Boolean)
     private boolean wasCrawler = false;
+    /**
+     * 每日更新一次
+     */
+    @Field(type = FieldType.Date, pattern = "yyyy-MM-dd")
+    private LocalDate updateDate = LocalDate.now();
 
 }

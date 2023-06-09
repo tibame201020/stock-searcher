@@ -20,7 +20,7 @@ import java.util.Comparator;
 @RequestMapping("/stocks")
 public class StockController {
 
-    private final Log LOG = LogFactory.getLog(this.getClass());
+    private final Log log = LogFactory.getLog(this.getClass());
 
     @Autowired
     private StockFinder stockFinder;

@@ -11,7 +11,7 @@ import reactor.core.publisher.Flux;
  */
 public interface StockCrawler {
 
-    Log LOG = LogFactory.getLog(StockCrawler.class);
+    Log log = LogFactory.getLog(StockCrawler.class);
 
     /**
      * 從twse取得股票資訊

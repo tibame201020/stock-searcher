@@ -41,7 +41,7 @@ public class StockCrawlerImpl implements StockCrawler {
                 .append("代號 :").append(stockCode).append("\n")
                 .append("時間 :").append(dateStr);
 
-        LOG.info(stringBuilder);
+        log.info(stringBuilder);
         String url = String.format(STOCK_INFO_URL, dateStr, stockCode);
         StockBasicInfo stockBasicInfo = webProvider.getUrlToObject(url, StockBasicInfo.class);
         if (null == stockBasicInfo || null == stockBasicInfo.getData()) {
@@ -53,7 +53,7 @@ public class StockCrawlerImpl implements StockCrawler {
 
     @Override
     public Flux<CompanyStatus> getCompanies() {
-        LOG.info("===============================================\n從網路取得資料公司資料");
+        log.info("===============================================\n從網路取得資料公司資料");
         CompanyStatus[] companies = new RestTemplate().getForObject(COMPANY_URL, CompanyStatus[].class);
 
         assert companies != null;

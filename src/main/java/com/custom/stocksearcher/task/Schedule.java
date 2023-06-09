@@ -11,7 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+
+import java.time.Duration;
+import java.time.LocalDate;
+import java.util.concurrent.TimeUnit;
 
 import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_BEGIN;
 import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_END;
@@ -21,7 +24,7 @@ import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_END;
  */
 @Component
 public class Schedule {
-    private final Log LOG = LogFactory.getLog(this.getClass());
+    private final Log log = LogFactory.getLog(this.getClass());
 
     @Autowired
     private StockFinder stockFinder;
@@ -30,25 +33,28 @@ public class Schedule {
     @Autowired
     private CompanyStatusRepo companyStatusRepo;
 
-    // todo: 取得公司列表 > 取得股價資訊 > 存入elasticsearch > 更新公司 crawler status
-
-    @Scheduled(fixedRate = 1000 * 60)
-    public void crawlStockData() {
-        Mono<CompanyStatus> companyStatusMono = companyStatusRepo.findFirstByWasCrawler(false);
-        companyStatusMono.subscribe(
-                companyStatus -> {
-                    LOG.info("Received companyStatus: " + companyStatus);
-                    crawlerStockDataToLocal(companyStatus.getCode());
+    /**
+     * 股價爬蟲
+     */
+    private void crawlStockData() {
+        Flux<CompanyStatus> companyStatusFlux = companyStatusRepo.findByWasCrawler(false);
+        companyStatusFlux
+                .delayElements(Duration.ofSeconds(60))
+                .flatMap(companyStatus -> {
+                    crawlStockDataToLocal(companyStatus.getCode());
                     companyStatus.setWasCrawler(true);
-                    companyStatusRepo.save(companyStatus).subscribe();
-                },
-                error -> {
-                    LOG.error("Error occurred: " + error.getMessage());
-                },
-                () -> {
-                    LOG.info("Mono completed");
-                }
-        );
+                    return companyStatusRepo.save(companyStatus);
+                })
+                .subscribe(companyStatus -> {
+                            log.info("receive companyStatus: " + companyStatus);
+                        },
+                        err -> {
+                            log.error("error: " + err.getMessage());
+                        },
+                        () -> {
+                            log.info("companyStatus complete");
+                        });
+
     }
 
     /**
@@ -58,35 +64,41 @@ public class Schedule {
      */
     @PostConstruct
     public void checkCompaniesData() {
-        Flux<CompanyStatus> companyStatusFlux = companyStatusRepo.findAll();
-        Flux<CompanyStatus> fromOpenApiFlux = Flux.defer(() -> stockCrawler.getCompanies());
+        Flux<CompanyStatus> companyStatusFlux = companyStatusRepo.findByUpdateDate(LocalDate.now());
+        Flux<CompanyStatus> fromOpenApiFlux = Flux.defer(() -> {
+            log.info("need update companies list");
+            return stockCrawler.getCompanies();
+        });
         companyStatusFlux.switchIfEmpty(fromOpenApiFlux).subscribe(
                 companyStatus -> {
-                    LOG.info(String.format("crawl company: %s", companyStatus));
+                    log.info(String.format("crawl company: %s", companyStatus));
                 },
                 err -> {
-                    LOG.info(String.format("crawl companies: %s", err.getMessage()));
+                    log.info(String.format("crawl companies: %s", err.getMessage()));
                 },
                 () -> {
-                    LOG.info("crawl company finish");
+                    log.info("crawl company finish");
                 }
         );
+
+        crawlStockData();
     }
 
     /**
      * handle stockFinder findStock method的subscribe
+     *
      * @param stockCode 股市代號
      */
-    private void crawlerStockDataToLocal(String stockCode) {
+    private void crawlStockDataToLocal(String stockCode) {
         stockFinder.findStock(stockCode, STOCK_CRAWLER_BEGIN, STOCK_CRAWLER_END).subscribe(
                 stockData -> {
-                    LOG.info(String.format("crawl stock: %s", stockData));
+                    log.info(String.format("crawl stock: %s", stockData));
                 },
                 err -> {
-                    LOG.error(String.format("crawl stock: %s error, err: %s", stockCode, err.getMessage()));
+                    log.error(String.format("crawl stock: %s error, err: %s", stockCode, err.getMessage()));
                 },
                 () -> {
-                    LOG.info(String.format("crawl stock: %s finish", stockCode));
+                    log.info(String.format("crawl stock: %s finish", stockCode));
                 }
         );
     }
