@@ -25,6 +25,12 @@ public class StockController {
     @Autowired
     private StockFinder stockFinder;
 
+    /**
+     * 根據條件查詢單一股價
+     *
+     * @param codeParam 查詢條件bean
+     * @return 股價資訊集合
+     */
     @RequestMapping("/findStockInfo")
     public Flux<StockData> findStockInfo(@RequestBody CodeParam codeParam) {
         return stockFinder.findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate()).sort(Comparator.comparing(StockData::getDate));

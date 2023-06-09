@@ -16,7 +16,6 @@ import reactor.core.publisher.Flux;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.Arrays;
 
 import static com.custom.stocksearcher.constant.Constant.COMPANY_URL;
 import static com.custom.stocksearcher.constant.Constant.STOCK_INFO_URL;
@@ -35,19 +34,26 @@ public class StockCrawlerImpl implements StockCrawler {
 
     @Override
     public Flux<StockData> getStockDataLs(String stockCode, String dateStr) {
-        LOG.info("===============================================");
-        LOG.info("從網路取得資料");
-        LOG.info("代號 :" + stockCode);
-        LOG.info("時間 :" + dateStr);
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("===============================================")
+                .append("\n")
+                .append("從網路取得股價資料").append("\n")
+                .append("代號 :").append(stockCode).append("\n")
+                .append("時間 :").append(dateStr);
+
+        LOG.info(stringBuilder);
         String url = String.format(STOCK_INFO_URL, dateStr, stockCode);
         StockBasicInfo stockBasicInfo = webProvider.getUrlToObject(url, StockBasicInfo.class);
-
+        if (null == stockBasicInfo || null == stockBasicInfo.getData()) {
+            return Flux.empty();
+        }
         return stockDataRepo.saveAll(Flux.fromArray(stockBasicInfo.getData())
                 .map(dataInfo -> translateStockData(dataInfo, stockCode)));
     }
 
     @Override
     public Flux<CompanyStatus> getCompanies() {
+        LOG.info("===============================================\n從網路取得資料公司資料");
         CompanyStatus[] companies = new RestTemplate().getForObject(COMPANY_URL, CompanyStatus[].class);
 
         assert companies != null;

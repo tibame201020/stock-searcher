@@ -15,14 +15,16 @@ public interface StockCrawler {
 
     /**
      * 從twse取得股票資訊
+     *
      * @param stockCode 股票代碼
-     * @param dateStr 日期
+     * @param dateStr   日期
      * @return Flux<StockData>
      */
     Flux<StockData> getStockDataLs(String stockCode, String dateStr);
 
     /**
      * 從twse open api 取得公司名稱與股票代號
+     *
      * @return 公司名稱與股票代號列表
      */
     Flux<CompanyStatus> getCompanies();

@@ -8,8 +8,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class StockSearcherApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(StockSearcherApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(StockSearcherApplication.class, args);
+    }
 
 }

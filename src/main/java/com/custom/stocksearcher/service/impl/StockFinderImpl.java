@@ -12,7 +12,6 @@ import reactor.core.publisher.Flux;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -38,8 +37,9 @@ public class StockFinderImpl implements StockFinder {
 
     /**
      * 根據month查詢elasticsearch 若無資料 則從crawler要資料
+     *
      * @param stockCode 股票代號
-     * @param month 年月份
+     * @param month     年月份
      * @return 條件當月股價資訊集合
      */
     private Flux<StockData> processMonth(String stockCode, YearMonth month) {
@@ -53,7 +53,7 @@ public class StockFinderImpl implements StockFinder {
         }
 
         Flux<StockData> twseStockData = Flux.defer(() ->
-            stockCrawler.getStockDataLs(stockCode, month.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"))));
+                stockCrawler.getStockDataLs(stockCode, month.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"))));
 
         return existingData.switchIfEmpty(twseStockData);
     }
