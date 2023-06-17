@@ -122,6 +122,9 @@ public class StockCrawlerImpl implements StockCrawler {
 
     private BigDecimal transDecimal(String str) {
         str = str.replaceAll(",", "").replaceAll("X", "").trim();
+        if ("--".equals(str)) {
+            return null;
+        }
         return new BigDecimal(str);
     }
 }
