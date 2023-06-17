@@ -14,6 +14,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,18 +35,34 @@ public class StockCrawlerImpl implements StockCrawler {
 
     @Override
     public Mono<StockMonthData> getStockMonthDataFromTWSEApi(String stockCode, String dateStr) {
+        String url = String.format(STOCK_INFO_URL, dateStr, stockCode);
+        StockBasicInfo stockBasicInfo = webProvider.getUrlToObject(url, StockBasicInfo.class);
+
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("\n===============================================")
+        stringBuilder
+                .append("\n===============================================")
                 .append("\n")
                 .append("從網路取得股價資料").append("\n")
                 .append("代號 :").append(stockCode).append("\n")
-                .append("時間 :").append(dateStr);
-
+                .append("時間 :").append(dateStr).append("\n")
+                .append("stockBasicInfo: ").append(stockBasicInfo).append("\n")
+                .append("===============================================");
         log.info(stringBuilder);
-        String url = String.format(STOCK_INFO_URL, dateStr, stockCode);
-        StockBasicInfo stockBasicInfo = webProvider.getUrlToObject(url, StockBasicInfo.class);
+
         if (null == stockBasicInfo || null == stockBasicInfo.getData()) {
-            return Mono.empty();
+            StockMonthDataId stockMonthDataId = new StockMonthDataId();
+            stockMonthDataId.setCode(stockCode);
+            stockMonthDataId.setYearMonth(dateStr);
+
+            StockMonthData stockMonthData = new StockMonthData();
+            stockMonthData.setCode(stockCode);
+            stockMonthData.setYearMonth(YearMonth.parse(dateStr, DateTimeFormatter.ofPattern("yyyyMMdd")).toString());
+            stockMonthData.setStockMonthDataId(stockMonthDataId);
+            stockMonthData.setStockDataList(List.of());
+            stockMonthData.setHistory(true);
+            stockMonthData.setUpdateDate(LocalDate.now());
+
+            return stockMonthDataRepo.save(stockMonthData);
         }
         StockMonthData stockMonthData = transStockMonthData(stockBasicInfo.getData(), stockCode);
 
