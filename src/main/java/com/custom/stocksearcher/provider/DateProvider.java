@@ -4,6 +4,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,11 +47,17 @@ public class DateProvider {
         List<YearMonth> monthList = new ArrayList<>();
         YearMonth currentMonth = YearMonth.from(beginDate);
 
-        while (!currentMonth.isAfter(YearMonth.from(endDate.minusMonths(1)))) {
+        while (!currentMonth.isAfter(YearMonth.from(endDate))) {
             monthList.add(currentMonth);
             currentMonth = currentMonth.plusMonths(1);
         }
 
         return monthList;
+    }
+
+    public String getSystemDateTimeFormat() {
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+
+        return now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 }

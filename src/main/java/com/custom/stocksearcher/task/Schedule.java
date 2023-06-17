@@ -12,11 +12,13 @@ import jakarta.annotation.PostConstruct;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -42,13 +44,14 @@ public class Schedule {
     private StockMonthDataRepo stockMonthDataRepo;
 
     /**
-     * 爬蟲主程式
+     * 爬蟲主程式 (啟動時執行一次 每日九點執行一次)
      * 1.yearMonths: 抓取資料日期區間
      * 2.companyStatusFlux: 全上市公司列表，每日更新一次
      * 3.codeYearMonthFlux: 股市代號與日期combine
      * 4.emptyStockMonthDataFlux: 先用codeYearMonthFlux去local撈資料 若無則透過switchIfEmpty與filter做出無資料的Flux
      * 5.最終使用emptyStockMonthDataFlux開始爬資料
      */
+    @Scheduled(cron = "0 0 9 * * *")
     @PostConstruct
     public void crawlStockData() {
         List<YearMonth> yearMonths = dateProvider.calculateMonthList(
@@ -75,15 +78,16 @@ public class Schedule {
                 })
                 .filter(stockMonthData -> null == stockMonthData.getStockMonthDataId());
 
+        log.info("start crawl stockMonthData at " + dateProvider.getSystemDateTimeFormat());
         emptyStockMonthDataFlux
-                .delayElements(Duration.ofSeconds(5))
+                .delayElements(Duration.ofSeconds(3))
                 .flatMap(stockMonthData ->
                         getStockMonthDataFluxFromOpenApi(stockMonthData.getCode(), YearMonth.parse(stockMonthData.getYearMonth()))
                 )
                 .subscribe(
                         result -> log.info(String.format("get stockMonthData: %s", result)),
-                        err -> log.info(String.format("get stockMonthData: %s", err.getMessage())),
-                        () -> log.info("crawl stockMonthData finish")
+                        err -> log.error(String.format("get stockMonthData error: %s", err.getMessage())),
+                        () -> log.info("crawl stockMonthData finish at " + dateProvider.getSystemDateTimeFormat())
                 );
     }
 

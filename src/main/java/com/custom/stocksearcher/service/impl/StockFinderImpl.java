@@ -34,7 +34,7 @@ public class StockFinderImpl implements StockFinder {
     @Override
     public Flux<StockMonthData> findStock(String stockCode, String begin, String end) {
         LocalDate beginDate = LocalDate.parse(begin).withDayOfMonth(1);
-        LocalDate endDate = LocalDate.parse(end).withDayOfMonth(1).plusMonths(1);
+        LocalDate endDate = LocalDate.parse(end).withDayOfMonth(1);
 
         List<YearMonth> monthList = dateProvider.calculateMonthList(beginDate, endDate);
         return companyStatusRepo
