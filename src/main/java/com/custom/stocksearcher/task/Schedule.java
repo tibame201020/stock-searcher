@@ -1,23 +1,27 @@
 package com.custom.stocksearcher.task;
 
+import com.custom.stocksearcher.models.CodeWithYearMonth;
 import com.custom.stocksearcher.models.CompanyStatus;
+import com.custom.stocksearcher.models.StockMonthData;
+import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
+import com.custom.stocksearcher.repo.StockMonthDataRepo;
 import com.custom.stocksearcher.service.StockCrawler;
 import com.custom.stocksearcher.service.StockFinder;
 import jakarta.annotation.PostConstruct;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.time.LocalDate;
-import java.util.concurrent.TimeUnit;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_BEGIN;
-import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_END;
 
 /**
  * 股價爬蟲Task
@@ -32,29 +36,55 @@ public class Schedule {
     private StockCrawler stockCrawler;
     @Autowired
     private CompanyStatusRepo companyStatusRepo;
+    @Autowired
+    private DateProvider dateProvider;
+    @Autowired
+    private StockMonthDataRepo stockMonthDataRepo;
 
     /**
-     * 股價爬蟲
+     * 爬蟲主程式
+     * 1.yearMonths: 抓取資料日期區間
+     * 2.companyStatusFlux: 全上市公司列表，每日更新一次
+     * 3.codeYearMonthFlux: 股市代號與日期combine
+     * 4.emptyStockMonthDataFlux: 先用codeYearMonthFlux去local撈資料 若無則透過switchIfEmpty與filter做出無資料的Flux
+     * 5.最終使用emptyStockMonthDataFlux開始爬資料
      */
-    private void crawlStockData() {
-        Flux<CompanyStatus> companyStatusFlux = companyStatusRepo.findByWasCrawler(false);
-        companyStatusFlux
-                .delayElements(Duration.ofSeconds(60))
-                .flatMap(companyStatus -> {
-                    crawlStockDataToLocal(companyStatus.getCode());
-                    companyStatus.setWasCrawler(true);
-                    return companyStatusRepo.save(companyStatus);
-                })
-                .subscribe(companyStatus -> {
-                            log.info("receive companyStatus: " + companyStatus);
-                        },
-                        err -> {
-                            log.error("error: " + err.getMessage());
-                        },
-                        () -> {
-                            log.info("companyStatus complete");
-                        });
+    @PostConstruct
+    public void crawlStockData() {
+        List<YearMonth> yearMonths = dateProvider.calculateMonthList(
+                LocalDate.parse(STOCK_CRAWLER_BEGIN),
+                LocalDate.now()
+        );
+        Flux<CompanyStatus> companyStatusFlux = checkCompaniesData();
 
+        Flux<CodeWithYearMonth> codeYearMonthFlux = companyStatusFlux.flatMap(companyStatus ->
+             Flux.fromIterable(yearMonths).map(yearMonth -> new CodeWithYearMonth(companyStatus.getCode(), yearMonth))
+        );
+
+        Flux<StockMonthData> emptyStockMonthDataFlux = codeYearMonthFlux
+                .flatMap(codeWithYearMonth -> {
+                    String code = codeWithYearMonth.getCode();
+                    YearMonth yearMonth = codeWithYearMonth.getYearMonth();
+                    Flux<StockMonthData> stockMonthDataFlux = getStockMonthDataFluxFromDB(code, yearMonth);
+
+                    StockMonthData stockMonthData = new StockMonthData();
+                    stockMonthData.setCode(code);
+                    stockMonthData.setYearMonth(yearMonth.toString());
+
+                    return Flux.from(stockMonthDataFlux).switchIfEmpty(Flux.defer(() -> Flux.just(stockMonthData)));
+                })
+                .filter(stockMonthData -> null == stockMonthData.getStockMonthDataId());
+
+        emptyStockMonthDataFlux
+                .delayElements(Duration.ofSeconds(5))
+                .flatMap(stockMonthData ->
+                        getStockMonthDataFluxFromOpenApi(stockMonthData.getCode(), YearMonth.parse(stockMonthData.getYearMonth()))
+                )
+                .subscribe(
+                        result -> log.info(String.format("get stockMonthData: %s", result)),
+                        err -> log.info(String.format("get stockMonthData: %s", err.getMessage())),
+                        () -> log.info("crawl stockMonthData finish")
+                );
     }
 
     /**
@@ -62,44 +92,31 @@ public class Schedule {
      * 若無 則從openapi撈取
      * 屬於前置作業
      */
-    @PostConstruct
-    public void checkCompaniesData() {
+    public Flux<CompanyStatus> checkCompaniesData() {
         Flux<CompanyStatus> companyStatusFlux = companyStatusRepo.findByUpdateDate(LocalDate.now());
         Flux<CompanyStatus> fromOpenApiFlux = Flux.defer(() -> {
             log.info("need update companies list");
             return stockCrawler.getCompanies();
         });
-        companyStatusFlux.switchIfEmpty(fromOpenApiFlux).subscribe(
-                companyStatus -> {
-                    log.info(String.format("crawl company: %s", companyStatus));
-                },
-                err -> {
-                    log.info(String.format("crawl companies: %s", err.getMessage()));
-                },
-                () -> {
-                    log.info("crawl company finish");
-                }
-        );
-
-        crawlStockData();
+        return companyStatusFlux.switchIfEmpty(fromOpenApiFlux);
     }
 
-    /**
-     * handle stockFinder findStock method的subscribe
-     *
-     * @param stockCode 股市代號
-     */
-    private void crawlStockDataToLocal(String stockCode) {
-        stockFinder.findStock(stockCode, STOCK_CRAWLER_BEGIN, STOCK_CRAWLER_END).subscribe(
-                stockData -> {
-                    log.info(String.format("crawl stock: %s", stockData));
-                },
-                err -> {
-                    log.error(String.format("crawl stock: %s error, err: %s", stockCode, err.getMessage()));
-                },
-                () -> {
-                    log.info(String.format("crawl stock: %s finish", stockCode));
-                }
-        );
+    private Flux<StockMonthData> getStockMonthDataFluxFromDB(String code, YearMonth yearMonth) {
+        YearMonth currentMonth = YearMonth.now();
+        Flux<StockMonthData> stockMonthDataFlux;
+        if (yearMonth.equals(currentMonth)) {
+            stockMonthDataFlux = stockMonthDataRepo.findByCodeAndYearMonthAndIsHistoryAndUpdateDate(code, yearMonth.toString(), false, LocalDate.now());
+        } else {
+            stockMonthDataFlux = stockMonthDataRepo.findByCodeAndYearMonthAndIsHistory(code, yearMonth.toString(), true);
+        }
+
+        return stockMonthDataFlux;
     }
+
+
+    private Flux<StockMonthData> getStockMonthDataFluxFromOpenApi(String code, YearMonth yearMonth) {
+        return stockCrawler.getStockMonthDataFromTWSEApi(code, yearMonth.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"))).flux();
+    }
+
+
 }

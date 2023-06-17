@@ -1,19 +1,20 @@
 package com.custom.stocksearcher.models;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-import java.time.LocalDate;
+import java.io.Serializable;
 
+
+@ToString
+@NoArgsConstructor
+@AllArgsConstructor
 @Getter
 @Setter
-@ToString
-public class StockDataId {
+public class StockMonthDataId implements Serializable {
     @Field(type = FieldType.Keyword)
     private String code;
-    @Field(type = FieldType.Date)
-    private LocalDate date;
+    @Field(type = FieldType.Keyword)
+    private String yearMonth;
 }

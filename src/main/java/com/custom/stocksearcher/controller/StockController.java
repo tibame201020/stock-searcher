@@ -1,7 +1,9 @@
 package com.custom.stocksearcher.controller;
 
 import com.custom.stocksearcher.models.CodeParam;
+import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.models.StockData;
+import com.custom.stocksearcher.models.StockMonthData;
 import com.custom.stocksearcher.service.StockFinder;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -11,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
+import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.Map;
 
 /**
  * 處理stock相關
@@ -33,7 +37,19 @@ public class StockController {
      */
     @RequestMapping("/findStockInfo")
     public Flux<StockData> findStockInfo(@RequestBody CodeParam codeParam) {
-        return stockFinder.findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate()).sort(Comparator.comparing(StockData::getDate));
+        return stockFinder
+                .findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate())
+                .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()))
+                .filter(stockData ->
+                    stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
+                            && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
+                )
+                .sort(Comparator.comparing(StockData::getDate));
+    }
+
+    @RequestMapping("/findCompaniesByKeyWord")
+    public Flux<CompanyStatus> findCompaniesByKeyWord(@RequestBody CodeParam codeParam) {
+        return stockFinder.findCompaniesByKeyWord(codeParam.getCode());
     }
 
 }

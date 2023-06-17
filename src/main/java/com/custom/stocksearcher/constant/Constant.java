@@ -25,5 +25,5 @@ public class Constant {
     /**
      * 定義schedule爬蟲結束日期
      */
-    public static final String STOCK_CRAWLER_END = "2023-05-31";
+    public static final String STOCK_CRAWLER_END = "2023-06-30";
 }

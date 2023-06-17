@@ -4,8 +4,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
@@ -20,12 +18,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Getter
 @Setter
-@Document(indexName = "stockdata")
 public class StockData implements Serializable {
-    @Id
-    private StockDataId stockDataId;
-    @Field(type = FieldType.Keyword)
-    private String code;
     @Field(type = FieldType.Date, pattern = "yyyy-MM-dd")
     private LocalDate date;
     @Field(type = FieldType.Keyword)
@@ -44,10 +37,4 @@ public class StockData implements Serializable {
     private String change;
     @Field(type = FieldType.Keyword)
     private String transaction;
-    @Field(type = FieldType.Date, pattern = "yyyy-MM-dd")
-    private LocalDate updateDate;
-    @Field(type = FieldType.Boolean)
-    private boolean isHistory;
-    @Field(type = FieldType.Keyword)
-    private String month;
 }
