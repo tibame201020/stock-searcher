@@ -36,11 +36,7 @@ public class WebProvider {
  * for pass ssl
  */
 class SSLUtil {
-    HostnameVerifier hv = new HostnameVerifier() {
-        public boolean verify(String urlHostName, SSLSession session) {
-            return true;
-        }
-    };
+    HostnameVerifier hv = (urlHostName, session) -> true;
 
     public static void trustAllHttpsCertificates() {
         try {

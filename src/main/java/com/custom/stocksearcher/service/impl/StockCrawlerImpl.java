@@ -60,7 +60,8 @@ public class StockCrawlerImpl implements StockCrawler {
             stockMonthData.setYearMonth(YearMonth.parse(dateStr, DateTimeFormatter.ofPattern("yyyyMMdd")).toString());
             stockMonthData.setStockMonthDataId(stockMonthDataId);
             stockMonthData.setStockDataList(List.of());
-            stockMonthData.setHistory(true);
+            boolean isThisMonth = dateProvider.isThisMonth(dateStr);
+            stockMonthData.setHistory(!isThisMonth);
             stockMonthData.setUpdateDate(LocalDate.now());
 
             return stockMonthDataRepo.save(stockMonthData);
