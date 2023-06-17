@@ -39,8 +39,8 @@ public class StockController {
                 .findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate())
                 .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()))
                 .filter(stockData ->
-                    stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
-                            && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
+                        stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
+                                && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
                 )
                 .sort(Comparator.comparing(StockData::getDate));
     }

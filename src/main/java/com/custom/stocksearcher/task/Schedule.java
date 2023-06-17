@@ -18,7 +18,6 @@ import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -61,7 +60,7 @@ public class Schedule {
         Flux<CompanyStatus> companyStatusFlux = checkCompaniesData();
 
         Flux<CodeWithYearMonth> codeYearMonthFlux = companyStatusFlux.flatMap(companyStatus ->
-             Flux.fromIterable(yearMonths).map(yearMonth -> new CodeWithYearMonth(companyStatus.getCode(), yearMonth))
+                Flux.fromIterable(yearMonths).map(yearMonth -> new CodeWithYearMonth(companyStatus.getCode(), yearMonth))
         );
 
         Flux<StockMonthData> emptyStockMonthDataFlux = codeYearMonthFlux

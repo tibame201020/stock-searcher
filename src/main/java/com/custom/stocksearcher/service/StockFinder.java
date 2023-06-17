@@ -6,8 +6,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Flux;
 
-import java.util.Map;
-
 /**
  * 股價查詢Service
  */
@@ -26,6 +24,7 @@ public interface StockFinder {
 
     /**
      * 根據關鍵字查找company list
+     *
      * @param keyword
      * @return
      */
