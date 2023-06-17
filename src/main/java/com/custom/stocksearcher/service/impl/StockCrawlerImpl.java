@@ -12,6 +12,7 @@ import org.springframework.web.client.RestTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -95,7 +96,7 @@ public class StockCrawlerImpl implements StockCrawler {
 
         List<StockData> stockDataList = new ArrayList<>();
         for (String[] dataInfo : data) {
-            StockData stockData = translateStockData(dataInfo, code);
+            StockData stockData = translateStockData(dataInfo);
             stockDataList.add(stockData);
         }
         stockMonthData.setStockDataList(stockDataList);
@@ -103,19 +104,24 @@ public class StockCrawlerImpl implements StockCrawler {
         return stockMonthData;
     }
 
-    private StockData translateStockData(String[] dataInfo, String code) {
+    private StockData translateStockData(String[] dataInfo) {
         StockData stockData = new StockData();
 
         stockData.setDate(LocalDate.parse(dataInfo[0].replace("/", "-")));
-        stockData.setTradeVolume(dataInfo[1]);
-        stockData.setTradeValue(dataInfo[2]);
-        stockData.setOpeningPrice(dataInfo[3]);
-        stockData.setHighestPrice(dataInfo[4]);
-        stockData.setLowestPrice(dataInfo[5]);
-        stockData.setClosingPrice(dataInfo[6]);
-        stockData.setChange(dataInfo[7]);
-        stockData.setTransaction(dataInfo[8]);
+        stockData.setTradeVolume(transDecimal(dataInfo[1]));
+        stockData.setTradeValue(transDecimal(dataInfo[2]));
+        stockData.setOpeningPrice(transDecimal(dataInfo[3]));
+        stockData.setHighestPrice(transDecimal(dataInfo[4]));
+        stockData.setLowestPrice(transDecimal(dataInfo[5]));
+        stockData.setClosingPrice(transDecimal(dataInfo[6]));
+        stockData.setChange(transDecimal(dataInfo[7]));
+        stockData.setTransaction(transDecimal(dataInfo[8]));
 
         return stockData;
+    }
+
+    private BigDecimal transDecimal(String str) {
+        str = str.replaceAll(",", "").replaceAll("X", "").trim();
+        return new BigDecimal(str);
     }
 }

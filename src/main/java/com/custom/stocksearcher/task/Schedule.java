@@ -85,7 +85,10 @@ public class Schedule {
                 )
                 .subscribe(
                         result -> log.info(String.format("get stockMonthData: %s", result)),
-                        err -> log.error(String.format("get stockMonthData error: %s", err.getMessage())),
+                        err -> {
+                            err.printStackTrace();
+                            log.error(String.format("get stockMonthData error: %s", err));
+                        },
                         () -> log.info("crawl stockMonthData finish at " + dateProvider.getSystemDateTimeFormat())
                 );
     }

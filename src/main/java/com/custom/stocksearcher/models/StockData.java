@@ -8,6 +8,7 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 
@@ -22,19 +23,19 @@ public class StockData implements Serializable {
     @Field(type = FieldType.Date, pattern = "yyyy-MM-dd")
     private LocalDate date;
     @Field(type = FieldType.Keyword)
-    private String tradeVolume;
+    private BigDecimal tradeVolume;
     @Field(type = FieldType.Keyword)
-    private String tradeValue;
+    private BigDecimal tradeValue;
     @Field(type = FieldType.Keyword)
-    private String openingPrice;
+    private BigDecimal openingPrice;
     @Field(type = FieldType.Keyword)
-    private String highestPrice;
+    private BigDecimal highestPrice;
     @Field(type = FieldType.Keyword)
-    private String lowestPrice;
+    private BigDecimal lowestPrice;
     @Field(type = FieldType.Keyword)
-    private String closingPrice;
+    private BigDecimal closingPrice;
     @Field(type = FieldType.Keyword)
-    private String change;
+    private BigDecimal change;
     @Field(type = FieldType.Keyword)
-    private String transaction;
+    private BigDecimal transaction;
 }
