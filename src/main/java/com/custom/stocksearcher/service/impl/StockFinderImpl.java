@@ -15,6 +15,7 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -36,9 +37,9 @@ public class StockFinderImpl implements StockFinder {
         LocalDate endDate = LocalDate.parse(end).withDayOfMonth(1).plusMonths(1);
 
         List<YearMonth> monthList = dateProvider.calculateMonthList(beginDate, endDate);
-
-        return Flux.fromIterable(monthList)
-                .flatMap(month -> processMonth(stockCode, month));
+        return companyStatusRepo
+                .findAllById(Collections.singleton(stockCode))
+                .flatMap(companyStatus -> Flux.fromIterable(monthList).flatMap(month -> processMonth(companyStatus.getCode(), month)));
     }
 
     @Override

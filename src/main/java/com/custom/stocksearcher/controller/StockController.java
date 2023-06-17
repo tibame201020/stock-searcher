@@ -3,7 +3,6 @@ package com.custom.stocksearcher.controller;
 import com.custom.stocksearcher.models.CodeParam;
 import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.models.StockData;
-import com.custom.stocksearcher.models.StockMonthData;
 import com.custom.stocksearcher.service.StockFinder;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -15,7 +14,6 @@ import reactor.core.publisher.Flux;
 
 import java.time.LocalDate;
 import java.util.Comparator;
-import java.util.Map;
 
 /**
  * 處理stock相關
