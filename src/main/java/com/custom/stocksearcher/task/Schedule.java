@@ -79,7 +79,7 @@ public class Schedule {
 
         log.info("start crawl stockMonthData at " + dateProvider.getSystemDateTimeFormat());
         emptyStockMonthDataFlux
-                .delayElements(Duration.ofSeconds(3))
+                .delayElements(Duration.ofSeconds(6))
                 .flatMap(stockMonthData ->
                         getStockMonthDataFluxFromOpenApi(stockMonthData.getCode(), YearMonth.parse(stockMonthData.getYearMonth()))
                 )
