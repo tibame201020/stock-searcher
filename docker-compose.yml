@@ -1,21 +1,18 @@
 version: '3.8'
 services:
   app-backend:
-    depends_on:
-      - app-elasticsearch
     image: stock-searcher_backend:1.0.0
     restart: always
     ports:
       - 8080:8080
     environment:
-      - DB_HOST=app-elasticsearch
+      DB_HOST: app-elasticsearch
     networks:
       - front2back
       - server2db
 
   app-elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.7.1
-    restart: always
     ports:
       - 9200:9200
       - 9300:9300
@@ -27,7 +24,6 @@ services:
       discovery.type: single-node
       xpack.security.enabled: false
     networks:
-      - front2back
       - server2db
 
 networks:
