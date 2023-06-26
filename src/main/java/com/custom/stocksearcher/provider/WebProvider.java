@@ -7,7 +7,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.SSLSession;
 
 /**
  * wrapper RestTemplate & Jsoup

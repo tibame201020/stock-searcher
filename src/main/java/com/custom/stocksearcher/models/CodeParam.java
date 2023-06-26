@@ -3,6 +3,7 @@ package com.custom.stocksearcher.models;
 import lombok.*;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 
 /**
  * 查詢參數bean
@@ -25,4 +26,8 @@ public class CodeParam implements Serializable {
      * 結束日期
      */
     private String endDate;
+
+    private BigDecimal bumpyHighLimit;
+
+    private BigDecimal bumpyLowLimit;
 }

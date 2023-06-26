@@ -2,7 +2,10 @@ package com.custom.stocksearcher.controller;
 
 import com.custom.stocksearcher.models.CodeParam;
 import com.custom.stocksearcher.models.CompanyStatus;
+import com.custom.stocksearcher.models.StockBumpy;
 import com.custom.stocksearcher.models.StockData;
+import com.custom.stocksearcher.repo.CompanyStatusRepo;
+import com.custom.stocksearcher.service.StockCalculator;
 import com.custom.stocksearcher.service.StockFinder;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -11,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
 
@@ -27,6 +32,11 @@ public class StockController {
     @Autowired
     private StockFinder stockFinder;
 
+    @Autowired
+    private StockCalculator stockCalculator;
+    @Autowired
+    private CompanyStatusRepo companyStatusRepo;
+
     /**
      * 根據條件查詢單一股價
      *
@@ -38,6 +48,7 @@ public class StockController {
         return stockFinder
                 .findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate())
                 .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()))
+                .filter(stockData -> stockData.getDate().isBefore(LocalDate.now()))
                 .filter(stockData ->
                         stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
                                 && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
@@ -48,6 +59,40 @@ public class StockController {
     @RequestMapping("/findCompaniesByKeyWord")
     public Flux<CompanyStatus> findCompaniesByKeyWord(@RequestBody CodeParam codeParam) {
         return stockFinder.findCompaniesByKeyWord(codeParam.getCode());
+    }
+
+    @RequestMapping("/getRangeOfHighAndLowPoint")
+    public Mono<StockBumpy> getRangeOfHighAndLowPoint(@RequestBody CodeParam codeParam) {
+        Flux<StockData> stockDataFlux = stockFinder
+                .findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate())
+                .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()))
+                .filter(stockData -> stockData.getDate().isBefore(LocalDate.now()))
+                .filter(stockData ->
+                        stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
+                                && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
+                )
+                .filter(stockData -> stockData.getHighestPrice() != null)
+                .filter(stockData -> stockData.getLowestPrice() != null);
+        return stockCalculator.getRangeOfHighAndLowPoint(stockDataFlux, codeParam.getCode());
+    }
+
+    @RequestMapping("/getAllRangeOfHighAndLowPoint")
+    public Flux<StockBumpy> getAllRangeOfHighAndLowPoint(@RequestBody CodeParam codeParam) {
+        BigDecimal bumpyHighLimit = codeParam.getBumpyHighLimit();
+        BigDecimal bumpyLowLimit = codeParam.getBumpyLowLimit();
+
+        Flux<CompanyStatus> companyStatusFlux = companyStatusRepo.findAll();
+        Flux<CodeParam> codeParamFlux = companyStatusFlux.flatMap(
+                companyStatus -> {
+                    CodeParam codeParam1 = new CodeParam();
+                    codeParam1.setCode(companyStatus.getCode());
+                    codeParam1.setBeginDate(codeParam.getBeginDate());
+                    codeParam1.setEndDate(codeParam.getEndDate());
+                    return Mono.just(codeParam1);
+                }
+        );
+        return codeParamFlux
+                .flatMap(this::getRangeOfHighAndLowPoint);
     }
 
 }
