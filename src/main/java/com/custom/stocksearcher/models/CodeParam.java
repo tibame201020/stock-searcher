@@ -30,4 +30,6 @@ public class CodeParam implements Serializable {
     private BigDecimal bumpyHighLimit;
 
     private BigDecimal bumpyLowLimit;
+
+    private BigDecimal tradeVolumeLimit;
 }

@@ -4,7 +4,7 @@ package com.custom.stocksearcher.constant;
  * 常數
  */
 public class Constant {
-    public static final String FRONT_END_URL = "https://p2zxwc-4200.csb.app/";
+    public static final String FRONT_END_URL = "https://ftf7ff-4200.csb.app/";
     public static final String LOCAL_URL = "http://localhost:4200/";
 
     public static final String[] CORS_URLS = new String[]{FRONT_END_URL, LOCAL_URL};

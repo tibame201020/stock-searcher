@@ -45,6 +45,7 @@ public class StockController {
      */
     @RequestMapping("/findStockInfo")
     public Flux<StockData> findStockInfo(@RequestBody CodeParam codeParam) {
+        System.out.println(codeParam);
         return stockFinder
                 .findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate())
                 .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()))
@@ -57,8 +58,8 @@ public class StockController {
     }
 
     @RequestMapping("/findCompaniesByKeyWord")
-    public Flux<CompanyStatus> findCompaniesByKeyWord(@RequestBody CodeParam codeParam) {
-        return stockFinder.findCompaniesByKeyWord(codeParam.getCode());
+    public Flux<CompanyStatus> findCompaniesByKeyWord(@RequestBody String code) {
+        return stockFinder.findCompaniesByKeyWord(code);
     }
 
     @RequestMapping("/getRangeOfHighAndLowPoint")
@@ -71,9 +72,12 @@ public class StockController {
                         stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
                                 && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
                 )
-                .filter(stockData -> stockData.getHighestPrice() != null)
-                .filter(stockData -> stockData.getLowestPrice() != null);
-        return stockCalculator.getRangeOfHighAndLowPoint(stockDataFlux, codeParam.getCode());
+                .filter(stockData -> null != stockData.getHighestPrice())
+                .filter(stockData -> null != stockData.getLowestPrice());
+        return stockCalculator.getRangeOfHighAndLowPoint(stockDataFlux, codeParam.getCode())
+                .filter(stockBumpy ->
+                        stockBumpy.getLowestTradeVolume().compareTo(codeParam.getTradeVolumeLimit()) >= 0
+                );
     }
 
     @RequestMapping("/getAllRangeOfHighAndLowPoint")
@@ -88,11 +92,25 @@ public class StockController {
                     codeParam1.setCode(companyStatus.getCode());
                     codeParam1.setBeginDate(codeParam.getBeginDate());
                     codeParam1.setEndDate(codeParam.getEndDate());
+                    codeParam1.setTradeVolumeLimit(codeParam.getTradeVolumeLimit());
                     return Mono.just(codeParam1);
                 }
         );
         return codeParamFlux
-                .flatMap(this::getRangeOfHighAndLowPoint);
+                .flatMap(this::getRangeOfHighAndLowPoint)
+                .filter(stockBumpy -> {
+                    if (bumpyHighLimit.compareTo(BigDecimal.ZERO) != 0) {
+                        return stockBumpy.getCalcResult().compareTo(bumpyHighLimit) <= 0;
+                    } else {
+                        return true;
+                    }
+                })
+                .filter(stockBumpy -> stockBumpy.getCalcResult().compareTo(bumpyLowLimit) >= 0)
+                .sort(Comparator.comparing(stockBumpy -> stockBumpy.getCalcResult().negate()));
+    }
+
+    public void stockPriceMACalculator(@RequestBody CodeParam codeParam) {
+
     }
 
 }

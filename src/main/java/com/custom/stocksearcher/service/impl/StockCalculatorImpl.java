@@ -6,6 +6,7 @@ import com.custom.stocksearcher.service.StockCalculator;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuples;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -17,6 +18,8 @@ public class StockCalculatorImpl implements StockCalculator {
     public Mono<StockBumpy> getRangeOfHighAndLowPoint(Flux<StockData> stockDataFlux, String code) {
         return getHighestStockData(stockDataFlux)
                 .zipWith(getLowestStockData(stockDataFlux))
+                .zipWith(getLowTradeVolume(stockDataFlux))
+                .map(tuple2 -> Tuples.of(tuple2.getT1().getT1(), tuple2.getT1().getT2(), tuple2.getT2()))
                 .flatMap(objects -> {
                     StockBumpy stockBumpy = new StockBumpy();
                     stockBumpy.setCode(code);
@@ -26,6 +29,9 @@ public class StockCalculatorImpl implements StockCalculator {
 
                     stockBumpy.setLowestDate(objects.getT2().getDate());
                     stockBumpy.setLowestPrice(objects.getT2().getLowestPrice());
+
+                    stockBumpy.setLowestTradeVolumeDate(objects.getT3().getDate());
+                    stockBumpy.setLowestTradeVolume(objects.getT3().getTradeVolume());
 
                     stockBumpy.setCalcResult(BigDecimal.ZERO);
 
@@ -37,12 +43,20 @@ public class StockCalculatorImpl implements StockCalculator {
                             .append("最高價: ").append(stockBumpy.getHighestPrice()).append("\n")
                             .append("最低價日期: ").append(stockBumpy.getLowestDate()).append("\n")
                             .append("最低價: ").append(stockBumpy.getLowestPrice()).append("\n")
+                            .append("最低成交量日期: ").append(stockBumpy.getLowestTradeVolume()).append("\n")
+                            .append("最低成交量: ").append(stockBumpy.getLowestTradeVolume()).append("\n")
                             .append("計算結果: ").append(stockBumpy.getCalcResult()).append("\n")
                             .append("===============================================");
                     log.info(stringBuilder);
 
                     return Mono.just(stockBumpy);
                 });
+    }
+
+    private Mono<StockData> getLowTradeVolume(Flux<StockData> stockDataFlux) {
+        return stockDataFlux.reduce((stockData1, stockData2) ->
+                stockData1.getTradeVolume().compareTo(stockData2.getTradeVolume()) < 0 ?
+                        stockData1 : stockData2);
     }
 
 

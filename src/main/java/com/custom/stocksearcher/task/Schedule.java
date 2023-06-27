@@ -50,7 +50,7 @@ public class Schedule {
      * 4.emptyStockMonthDataFlux: 先用codeYearMonthFlux去local撈資料 若無則透過switchIfEmpty與filter做出無資料的Flux
      * 5.最終使用emptyStockMonthDataFlux開始爬資料
      */
-    @Scheduled(cron = "0 0 9 * * *")
+    @Scheduled(cron = "0 0 2 * * *")
     @PostConstruct
     public void crawlStockData() {
         List<YearMonth> yearMonths = dateProvider.calculateMonthList(

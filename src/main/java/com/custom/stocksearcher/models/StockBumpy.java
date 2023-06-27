@@ -15,9 +15,15 @@ import java.time.LocalDate;
 @Setter
 public class StockBumpy implements Serializable {
     private String code;
+
     private LocalDate highestDate;
     private BigDecimal highestPrice;
+
     private LocalDate lowestDate;
     private BigDecimal lowestPrice;
+
+    private LocalDate lowestTradeVolumeDate;
+    private BigDecimal lowestTradeVolume;
+
     private BigDecimal calcResult;
 }
