@@ -4,6 +4,7 @@ services:
     image: stock-searcher_backend:1.0.0
     restart: always
     environment:
+      - ES_HOST=app-elasticsearch
       - TZ=Asia/Taipei
     ports:
       - 8080:8080
