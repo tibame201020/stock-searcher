@@ -7,7 +7,9 @@ services:
       - TZ=Asia/Taipei
     ports:
       - 8080:8080
-    network_mode: host
+    networks:
+      - front2back
+      - back2db
 
   app-elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.7.1
@@ -19,7 +21,11 @@ services:
     environment:
       discovery.type: single-node
       xpack.security.enabled: false
-    network_mode: host
+    networks:
+      - back2db
+networks:
+  front2back:
+  back2db:
 
 volumes:
   elasticsearch-data:
