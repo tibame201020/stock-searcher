@@ -1,9 +1,6 @@
 package com.custom.stocksearcher.controller;
 
-import com.custom.stocksearcher.models.CodeParam;
-import com.custom.stocksearcher.models.CompanyStatus;
-import com.custom.stocksearcher.models.StockBumpy;
-import com.custom.stocksearcher.models.StockData;
+import com.custom.stocksearcher.models.*;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.service.StockCalculator;
 import com.custom.stocksearcher.service.StockFinder;
@@ -45,7 +42,6 @@ public class StockController {
      */
     @RequestMapping("/findStockInfo")
     public Flux<StockData> findStockInfo(@RequestBody CodeParam codeParam) {
-        System.out.println(codeParam);
         return stockFinder
                 .findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate())
                 .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()))
@@ -85,6 +81,11 @@ public class StockController {
         BigDecimal bumpyHighLimit = codeParam.getBumpyHighLimit();
         BigDecimal bumpyLowLimit = codeParam.getBumpyLowLimit();
 
+        if (null != codeParam.getBeforeEndDateDays() && codeParam.getBeforeEndDateDays() > 0) {
+            LocalDate beginDate = LocalDate.parse(codeParam.getEndDate()).minusDays(codeParam.getBeforeEndDateDays());
+            codeParam.setBeginDate(beginDate.toString());
+        }
+
         Flux<CompanyStatus> companyStatusFlux = companyStatusRepo.findAll();
         Flux<CodeParam> codeParamFlux = companyStatusFlux.flatMap(
                 companyStatus -> {
@@ -109,8 +110,16 @@ public class StockController {
                 .sort(Comparator.comparing(stockBumpy -> stockBumpy.getCalcResult().negate()));
     }
 
-    public void stockPriceMACalculator(@RequestBody CodeParam codeParam) {
-
+    @RequestMapping("getStockMa")
+    public Flux<StockMAResult> getStockMa(@RequestBody CodeParam codeParam) {
+        LocalDate beginDate = LocalDate.parse(codeParam.getBeginDate()).minusDays(1);
+        LocalDate endDate = LocalDate.parse(codeParam.getEndDate()).plusDays(1);
+        codeParam.setBeginDate(LocalDate.parse(codeParam.getBeginDate()).minusMonths(3).toString());
+        return stockCalculator.getStockMa(findStockInfo(codeParam), codeParam.getCode())
+                .filter(stockMAResult -> stockMAResult.getDate().isBefore(LocalDate.now()))
+                .filter(stockMAResult -> stockMAResult.getDate().isAfter(beginDate) && stockMAResult.getDate().isBefore(endDate))
+                .sort(Comparator.comparing(StockMAResult::getDate));
     }
+
 
 }

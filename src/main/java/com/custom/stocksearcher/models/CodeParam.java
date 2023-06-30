@@ -32,4 +32,6 @@ public class CodeParam implements Serializable {
     private BigDecimal bumpyLowLimit;
 
     private BigDecimal tradeVolumeLimit;
+
+    private Integer beforeEndDateDays;
 }

@@ -84,7 +84,8 @@ public class Schedule {
                         getStockMonthDataFluxFromOpenApi(stockMonthData.getCode(), YearMonth.parse(stockMonthData.getYearMonth()))
                 )
                 .subscribe(
-                        result -> log.info(String.format("get stockMonthData: %s", result)),
+                        result -> {
+                        },
                         err -> {
                             err.printStackTrace();
                             log.error(String.format("get stockMonthData error: %s", err));

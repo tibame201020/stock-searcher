@@ -46,7 +46,6 @@ public class StockCrawlerImpl implements StockCrawler {
                 .append("從網路取得股價資料").append("\n")
                 .append("代號 :").append(stockCode).append("\n")
                 .append("時間 :").append(dateStr).append("\n")
-                .append("stockBasicInfo: ").append(stockBasicInfo).append("\n")
                 .append("===============================================");
         log.info(stringBuilder);
 
@@ -122,10 +121,14 @@ public class StockCrawlerImpl implements StockCrawler {
     }
 
     private BigDecimal transDecimal(String str) {
-        str = str.replaceAll(",", "").replaceAll("X", "").trim();
-        if ("--".equals(str)) {
+        try {
+            str = str.replaceAll(",", "").replaceAll("X", "").trim();
+            if ("--".equals(str)) {
+                return null;
+            }
+            return new BigDecimal(str);
+        } catch (NumberFormatException numberFormatException) {
             return null;
         }
-        return new BigDecimal(str);
     }
 }
