@@ -139,10 +139,15 @@ public class StockCalculatorImpl implements StockCalculator {
 
         BigDecimal sum = BigDecimal.ZERO;
         for (int i = window.size() - period; i < window.size(); i++) {
-            sum = sum.add(window.get(i).getClosingPrice());
+            BigDecimal closingPrice = window.get(i).getClosingPrice();
+            if (null == closingPrice) {
+                closingPrice = BigDecimal.ZERO;
+            }
+            sum = sum.add(closingPrice);
         }
 
         return sum.divide(BigDecimal.valueOf(period), RoundingMode.HALF_UP);
     }
+
 
 }

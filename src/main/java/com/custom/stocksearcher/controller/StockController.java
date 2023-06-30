@@ -1,9 +1,11 @@
 package com.custom.stocksearcher.controller;
 
 import com.custom.stocksearcher.models.*;
+import com.custom.stocksearcher.repo.CodeListRepo;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.service.StockCalculator;
 import com.custom.stocksearcher.service.StockFinder;
+import com.custom.stocksearcher.service.UserStorage;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,10 @@ public class StockController {
     private StockCalculator stockCalculator;
     @Autowired
     private CompanyStatusRepo companyStatusRepo;
+    @Autowired
+    private UserStorage userStorage;
+    @Autowired
+    private CodeListRepo codeListRepo;
 
     /**
      * 根據條件查詢單一股價
@@ -85,8 +91,16 @@ public class StockController {
             LocalDate beginDate = LocalDate.parse(codeParam.getEndDate()).minusDays(codeParam.getBeforeEndDateDays());
             codeParam.setBeginDate(beginDate.toString());
         }
+        Flux<CompanyStatus> companyStatusFlux;
+        if ("all".equalsIgnoreCase(codeParam.getCode())) {
+            companyStatusFlux = companyStatusRepo.findAll();
+        } else {
+            companyStatusFlux = codeListRepo
+                    .findById(codeParam.getCode())
+                    .flux()
+                    .flatMap(codeList -> Flux.fromIterable(codeList.getCodes()));
+        }
 
-        Flux<CompanyStatus> companyStatusFlux = companyStatusRepo.findAll();
         Flux<CodeParam> codeParamFlux = companyStatusFlux.flatMap(
                 companyStatus -> {
                     CodeParam codeParam1 = new CodeParam();
@@ -114,12 +128,26 @@ public class StockController {
     public Flux<StockMAResult> getStockMa(@RequestBody CodeParam codeParam) {
         LocalDate beginDate = LocalDate.parse(codeParam.getBeginDate()).minusDays(1);
         LocalDate endDate = LocalDate.parse(codeParam.getEndDate()).plusDays(1);
-        codeParam.setBeginDate(LocalDate.parse(codeParam.getBeginDate()).minusMonths(3).toString());
+        codeParam.setBeginDate(LocalDate.parse(codeParam.getBeginDate()).minusMonths(5).toString());
         return stockCalculator.getStockMa(findStockInfo(codeParam), codeParam.getCode())
                 .filter(stockMAResult -> stockMAResult.getDate().isBefore(LocalDate.now()))
                 .filter(stockMAResult -> stockMAResult.getDate().isAfter(beginDate) && stockMAResult.getDate().isBefore(endDate))
                 .sort(Comparator.comparing(StockMAResult::getDate));
     }
 
+    @RequestMapping("saveCodeList")
+    public Mono<CodeList> saveCodeList(@RequestBody CodeList codeList) {
+        return userStorage.saveCodeList(codeList);
+    }
+
+    @RequestMapping("getCodeListByUser")
+    public Flux<CodeList> getCodeListByUser(@RequestBody String user) {
+        return userStorage.getCodeListByUser(user);
+    }
+
+    @RequestMapping("getCodeList")
+    public Mono<CodeList> getCodeList(@RequestBody String codeListId) {
+        return codeListRepo.findById(codeListId);
+    }
 
 }
