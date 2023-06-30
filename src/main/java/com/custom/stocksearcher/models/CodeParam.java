@@ -34,4 +34,6 @@ public class CodeParam implements Serializable {
     private BigDecimal tradeVolumeLimit;
 
     private Integer beforeEndDateDays;
+
+    private Integer klineCnt;
 }

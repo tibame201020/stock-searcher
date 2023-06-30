@@ -66,6 +66,12 @@ public class StockController {
 
     @RequestMapping("/getRangeOfHighAndLowPoint")
     public Mono<StockBumpy> getRangeOfHighAndLowPoint(@RequestBody CodeParam codeParam) {
+        if (null != codeParam.getKlineCnt() && codeParam.getKlineCnt() > 0) {
+            LocalDate beginDate = LocalDate.parse(codeParam.getEndDate()).minusDays(codeParam.getKlineCnt() * 3L);
+            codeParam.setBeginDate(beginDate.toString());
+        }
+
+
         Flux<StockData> stockDataFlux = stockFinder
                 .findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate())
                 .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()))
@@ -76,6 +82,11 @@ public class StockController {
                 )
                 .filter(stockData -> null != stockData.getHighestPrice())
                 .filter(stockData -> null != stockData.getLowestPrice());
+
+        if (null != codeParam.getKlineCnt() && codeParam.getKlineCnt() > 0) {
+            stockDataFlux = stockDataFlux.takeLast(codeParam.getKlineCnt());
+        }
+
         return stockCalculator.getRangeOfHighAndLowPoint(stockDataFlux, codeParam.getCode())
                 .filter(stockBumpy ->
                         stockBumpy.getLowestTradeVolume().compareTo(codeParam.getTradeVolumeLimit()) >= 0
@@ -108,6 +119,7 @@ public class StockController {
                     codeParam1.setBeginDate(codeParam.getBeginDate());
                     codeParam1.setEndDate(codeParam.getEndDate());
                     codeParam1.setTradeVolumeLimit(codeParam.getTradeVolumeLimit());
+                    codeParam1.setKlineCnt(codeParam.getKlineCnt());
                     return Mono.just(codeParam1);
                 }
         );
