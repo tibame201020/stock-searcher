@@ -1,9 +1,7 @@
 package com.custom.stocksearcher.service.impl;
 
-import com.custom.stocksearcher.models.StockBumpy;
-import com.custom.stocksearcher.models.StockData;
-import com.custom.stocksearcher.models.StockMAResult;
-import com.custom.stocksearcher.models.StockMAResultId;
+import com.custom.stocksearcher.models.*;
+import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.StockMAResultRepo;
 import com.custom.stocksearcher.service.StockCalculator;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +12,10 @@ import reactor.util.function.Tuples;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 @Service
 public class StockCalculatorImpl implements StockCalculator {
@@ -22,15 +23,19 @@ public class StockCalculatorImpl implements StockCalculator {
     @Autowired
     private StockMAResultRepo stockMAResultRepo;
 
+    @Autowired
+    private CompanyStatusRepo companyStatusRepo;
+
     @Override
-    public Mono<StockBumpy> getRangeOfHighAndLowPoint(Flux<StockData> stockDataFlux, String code) {
+    public Mono<StockBumpy> getRangeOfHighAndLowPoint(Flux<StockData> stockDataFlux, CodeParam codeParam) {
+
         return getHighestStockData(stockDataFlux)
                 .zipWith(getLowestStockData(stockDataFlux))
                 .zipWith(getLowTradeVolume(stockDataFlux))
                 .map(tuple2 -> Tuples.of(tuple2.getT1().getT1(), tuple2.getT1().getT2(), tuple2.getT2()))
                 .flatMap(objects -> {
                     StockBumpy stockBumpy = new StockBumpy();
-                    stockBumpy.setCode(code);
+                    stockBumpy.setCode(codeParam.getCode());
 
                     stockBumpy.setHighestDate(objects.getT1().getDate());
                     stockBumpy.setHighestPrice(objects.getT1().getHighestPrice());
@@ -60,7 +65,14 @@ public class StockCalculatorImpl implements StockCalculator {
                     log.info(stringBuilder);
 
                     return Mono.just(stockBumpy);
-                });
+                }).flatMap(stockBumpy ->
+                        companyStatusRepo
+                                .findById(stockBumpy.getCode())
+                                .flatMap(companyStatus -> {
+                                    stockBumpy.setName(companyStatus.getName());
+                                    return Mono.just(stockBumpy);
+                                })
+                );
     }
 
     @Override
@@ -88,16 +100,65 @@ public class StockCalculatorImpl implements StockCalculator {
 
 
     private Mono<StockData> getHighestStockData(Flux<StockData> stockDataFlux) {
-        return stockDataFlux.reduce((stockData1, stockData2) ->
-                stockData1.getHighestPrice().compareTo(stockData2.getHighestPrice()) > 0 ?
-                        stockData1 : stockData2);
+        return stockDataFlux.reduce((stockData1, stockData2) -> {
+            BigDecimal stock1Price = getStockDataHighest(stockData1);
+            BigDecimal stock2Price = getStockDataHighest(stockData2);
+            stockData1.setHighestPrice(stock1Price);
+            stockData2.setHighestPrice(stock2Price);
+
+            if (stock1Price == null) {
+                return stockData2;
+            }
+            if (stock2Price == null) {
+                return stockData1;
+            }
+
+            return stock1Price.compareTo(stock2Price) > 0 ? stockData1 : stockData2;
+        });
     }
 
     private Mono<StockData> getLowestStockData(Flux<StockData> stockDataFlux) {
-        return stockDataFlux.reduce((stockData1, stockData2) ->
-                stockData1.getLowestPrice().compareTo(stockData2.getLowestPrice()) < 0 ?
-                        stockData1 : stockData2);
+        return stockDataFlux.reduce((stockData1, stockData2) -> {
+            BigDecimal stock1Price = getStockDataLowest(stockData1);
+            BigDecimal stock2Price = getStockDataLowest(stockData2);
+            stockData1.setLowestPrice(stock1Price);
+            stockData2.setLowestPrice(stock2Price);
+
+            if (stock1Price == null) {
+                return stockData2;
+            }
+            if (stock2Price == null) {
+                return stockData1;
+            }
+
+            return stock1Price.compareTo(stock2Price) < 0 ? stockData1 : stockData2;
+        });
     }
+
+    private BigDecimal getStockDataLowest(StockData stockData) {
+        BigDecimal highestPrice = stockData.getHighestPrice();
+        BigDecimal lowestPrice = stockData.getLowestPrice();
+        BigDecimal openingPrice = stockData.getOpeningPrice();
+        BigDecimal closingPrice = stockData.getClosingPrice();
+
+        return Stream.of(highestPrice, lowestPrice, openingPrice, closingPrice)
+                .filter(Objects::nonNull)
+                .min(Comparator.naturalOrder())
+                .orElse(null);
+    }
+
+    private BigDecimal getStockDataHighest(StockData stockData) {
+        BigDecimal highestPrice = stockData.getHighestPrice();
+        BigDecimal lowestPrice = stockData.getLowestPrice();
+        BigDecimal openingPrice = stockData.getOpeningPrice();
+        BigDecimal closingPrice = stockData.getClosingPrice();
+
+        return Stream.of(highestPrice, lowestPrice, openingPrice, closingPrice)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .orElse(null);
+    }
+
 
     private StockMAResult calcStockMa(List<StockData> window, String code) {
         BigDecimal ma5 = calculateMA(window, 5);

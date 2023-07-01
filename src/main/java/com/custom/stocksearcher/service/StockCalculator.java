@@ -1,5 +1,6 @@
 package com.custom.stocksearcher.service;
 
+import com.custom.stocksearcher.models.CodeParam;
 import com.custom.stocksearcher.models.StockBumpy;
 import com.custom.stocksearcher.models.StockData;
 import com.custom.stocksearcher.models.StockMAResult;
@@ -18,10 +19,10 @@ public interface StockCalculator {
      * getRangeOfHighAndLowPoint
      *
      * @param stockDataFlux 股票
-     * @param code          股票代碼
+     * @param codeParam     查詢bean
      * @return result
      */
-    Mono<StockBumpy> getRangeOfHighAndLowPoint(Flux<StockData> stockDataFlux, String code);
+    Mono<StockBumpy> getRangeOfHighAndLowPoint(Flux<StockData> stockDataFlux, CodeParam codeParam);
 
     Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, String code);
 }

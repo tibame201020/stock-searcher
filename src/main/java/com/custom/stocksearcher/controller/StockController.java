@@ -18,6 +18,7 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.List;
 
 /**
  * 處理stock相關
@@ -66,30 +67,37 @@ public class StockController {
 
     @RequestMapping("/getRangeOfHighAndLowPoint")
     public Mono<StockBumpy> getRangeOfHighAndLowPoint(@RequestBody CodeParam codeParam) {
-        if (null != codeParam.getKlineCnt() && codeParam.getKlineCnt() > 0) {
-            LocalDate beginDate = LocalDate.parse(codeParam.getEndDate()).minusDays(codeParam.getKlineCnt() * 3L);
+        Integer klineCnt = codeParam.getKlineCnt();
+        if (null != klineCnt && klineCnt > 0) {
+            LocalDate beginDate = LocalDate.parse(codeParam.getEndDate()).minusDays(klineCnt * 3L);
             codeParam.setBeginDate(beginDate.toString());
         }
 
+        Flux<StockData> stockDataFlux = findStockInfo(codeParam);
 
-        Flux<StockData> stockDataFlux = stockFinder
-                .findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate())
-                .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()))
-                .filter(stockData -> stockData.getDate().isBefore(LocalDate.now()))
-                .filter(stockData ->
-                        stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
-                                && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
-                )
-                .filter(stockData -> null != stockData.getHighestPrice())
-                .filter(stockData -> null != stockData.getLowestPrice());
-
-        if (null != codeParam.getKlineCnt() && codeParam.getKlineCnt() > 0) {
-            stockDataFlux = stockDataFlux.takeLast(codeParam.getKlineCnt());
+        if (null != klineCnt && klineCnt > 0) {
+            stockDataFlux = stockDataFlux.takeLast(klineCnt);
         }
 
-        return stockCalculator.getRangeOfHighAndLowPoint(stockDataFlux, codeParam.getCode())
+        Flux<StockData> finalStockDataFlux = Flux.from(stockDataFlux);
+
+        return stockCalculator.getRangeOfHighAndLowPoint(finalStockDataFlux, codeParam)
                 .filter(stockBumpy ->
                         stockBumpy.getLowestTradeVolume().compareTo(codeParam.getTradeVolumeLimit()) >= 0
+                ).flatMap(stockBumpy ->
+                        finalStockDataFlux.sort(Comparator.comparing(StockData::getDate)).elementAt(0).flatMap(
+                                stockData -> {
+                                    stockBumpy.setBeginDate(stockData.getDate().toString());
+                                    return Mono.just(stockBumpy);
+                                }
+                        )
+                ).flatMap(stockBumpy ->
+                        finalStockDataFlux.sort(Comparator.comparing(StockData::getDate)).last().flatMap(
+                                stockData -> {
+                                    stockBumpy.setEndDate(stockData.getDate().toString());
+                                    return Mono.just(stockBumpy);
+                                }
+                        )
                 );
     }
 
@@ -127,7 +135,7 @@ public class StockController {
                 .flatMap(this::getRangeOfHighAndLowPoint)
                 .filter(stockBumpy -> {
                     if (bumpyHighLimit.compareTo(BigDecimal.ZERO) != 0) {
-                        return stockBumpy.getCalcResult().compareTo(bumpyHighLimit) <= 0;
+                        return stockBumpy.getCalcResult().compareTo(bumpyHighLimit) < 0;
                     } else {
                         return true;
                     }
@@ -148,7 +156,7 @@ public class StockController {
     }
 
     @RequestMapping("saveCodeList")
-    public Mono<CodeList> saveCodeList(@RequestBody CodeList codeList) {
+    public Flux<CodeList> saveCodeList(@RequestBody CodeList codeList) {
         return userStorage.saveCodeList(codeList);
     }
 
@@ -160,6 +168,16 @@ public class StockController {
     @RequestMapping("getCodeList")
     public Mono<CodeList> getCodeList(@RequestBody String codeListId) {
         return codeListRepo.findById(codeListId);
+    }
+
+    @RequestMapping("deleteCodeList")
+    public Mono<Void> deleteCodeList(@RequestBody String codeListId) {
+        return codeListRepo.deleteById(codeListId);
+    }
+
+    @RequestMapping("getIntersectionFromCodeList")
+    public Flux<CompanyStatus> getIntersectionFromCodeList(@RequestBody List<String> codeListIds) {
+        return userStorage.getIntersectionFromCodeList(codeListIds);
     }
 
 }

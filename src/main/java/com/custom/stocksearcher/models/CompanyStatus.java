@@ -12,6 +12,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.Objects;
 
 /**
  * 公司股票代號bean
@@ -34,5 +35,21 @@ public class CompanyStatus implements Serializable {
      */
     @Field(type = FieldType.Date, pattern = "yyyy-MM-dd")
     private LocalDate updateDate = LocalDate.now();
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        CompanyStatus other = (CompanyStatus) obj;
+
+        return Objects.equals(code, other.code) &&
+                Objects.equals(name, other.name);
+    }
 
 }

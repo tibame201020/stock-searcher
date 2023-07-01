@@ -7,7 +7,6 @@ import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.StockMonthDataRepo;
 import com.custom.stocksearcher.service.StockCrawler;
-import com.custom.stocksearcher.service.StockFinder;
 import jakarta.annotation.PostConstruct;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -30,9 +29,6 @@ import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_BEGIN;
 @Component
 public class Schedule {
     private final Log log = LogFactory.getLog(this.getClass());
-
-    @Autowired
-    private StockFinder stockFinder;
     @Autowired
     private StockCrawler stockCrawler;
     @Autowired

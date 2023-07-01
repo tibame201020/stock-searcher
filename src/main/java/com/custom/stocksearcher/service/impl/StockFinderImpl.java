@@ -73,10 +73,7 @@ public class StockFinderImpl implements StockFinder {
             existingData = stockMonthDataRepo.findByCodeAndYearMonthAndIsHistory(stockCode, month.toString(), true);
         }
 
-        Flux<StockMonthData> twseStockData = Flux.defer(() ->
-                stockCrawler.getStockMonthDataFromTWSEApi(stockCode, month.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"))));
-
-        return existingData.switchIfEmpty(twseStockData);
+        return existingData;
     }
 
 }
