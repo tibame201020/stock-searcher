@@ -46,7 +46,10 @@ public class StockCalculatorImpl implements StockCalculator {
                     stockBumpy.setLowestTradeVolumeDate(objects.getT3().getDate());
                     stockBumpy.setLowestTradeVolume(objects.getT3().getTradeVolume());
 
-                    BigDecimal calcResult = BigDecimal.ZERO;
+                    BigDecimal calcResult = stockBumpy.getHighestPrice()
+                            .subtract(stockBumpy.getLowestPrice())
+                            .divide(stockBumpy.getLowestPrice(), 4, RoundingMode.FLOOR)
+                            .multiply(BigDecimal.valueOf(100));
 
                     stockBumpy.setCalcResult(calcResult);
 

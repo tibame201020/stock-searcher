@@ -1,7 +1,15 @@
 version: '3.8'
 services:
+  app-frontend:
+    image: tibame201020/stocker-searcher_frontend:1.0.0
+    restart: always
+    ports:
+      - 9218:80
+    networks:
+      - front2back
+
   app-backend:
-    image: stock-searcher_backend:1.0.0
+    image: tibame201020/stocker-searcher_backend:1.0.0
     restart: always
     environment:
       - ES_HOST=app-elasticsearch
