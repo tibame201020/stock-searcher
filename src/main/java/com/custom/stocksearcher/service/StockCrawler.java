@@ -2,6 +2,7 @@ package com.custom.stocksearcher.service;
 
 import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.models.StockMonthData;
+import com.custom.stocksearcher.models.tpex.TPExStock;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Flux;
@@ -29,4 +30,6 @@ public interface StockCrawler {
      * @return 公司名稱與股票代號列表
      */
     Flux<CompanyStatus> getCompanies();
+
+    Flux<TPExStock> getTPExStockFromTPEx(String url);
 }

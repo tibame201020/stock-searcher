@@ -30,6 +30,8 @@ public class CompanyStatus implements Serializable {
     @Field(type = FieldType.Text)
     @JsonProperty(value = "Name")
     private String name;
+    @Field(type = FieldType.Boolean)
+    private boolean isTPE = false;
     /**
      * 每日更新一次
      */

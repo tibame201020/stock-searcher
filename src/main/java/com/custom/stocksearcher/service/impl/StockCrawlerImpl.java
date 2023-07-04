@@ -1,10 +1,15 @@
 package com.custom.stocksearcher.service.impl;
 
 import com.custom.stocksearcher.models.*;
+import com.custom.stocksearcher.models.tpex.TPExCompany;
+import com.custom.stocksearcher.models.tpex.TPExStock;
+import com.custom.stocksearcher.models.tpex.TPExStockId;
+import com.custom.stocksearcher.models.tpex.TPExUrlObject;
 import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.provider.WebProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.StockMonthDataRepo;
+import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,8 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.custom.stocksearcher.constant.Constant.COMPANY_URL;
-import static com.custom.stocksearcher.constant.Constant.STOCK_INFO_URL;
+import static com.custom.stocksearcher.constant.Constant.*;
 
 @Service
 public class StockCrawlerImpl implements StockCrawler {
@@ -33,6 +37,8 @@ public class StockCrawlerImpl implements StockCrawler {
     private StockMonthDataRepo stockMonthDataRepo;
     @Autowired
     private CompanyStatusRepo companyStatusRepo;
+    @Autowired
+    private TPExStockRepo tpExStockRepo;
 
     @Override
     public Mono<StockMonthData> getStockMonthDataFromTWSEApi(String stockCode, String dateStr) {
@@ -73,10 +79,56 @@ public class StockCrawlerImpl implements StockCrawler {
     @Override
     public Flux<CompanyStatus> getCompanies() {
         log.info("===============================================\n從網路取得資料公司資料");
+        TPExCompany[] tpExCompanies = new RestTemplate().getForObject(TPEx_COMPANY_URL, TPExCompany[].class);
         CompanyStatus[] companies = new RestTemplate().getForObject(COMPANY_URL, CompanyStatus[].class);
-
+        assert tpExCompanies != null;
         assert companies != null;
-        return companyStatusRepo.saveAll(Flux.fromArray(companies));
+        Flux<CompanyStatus> companyStatusFlux = Flux.fromArray(tpExCompanies)
+                .flatMap(tpExCompany -> {
+                    CompanyStatus companyStatus = new CompanyStatus();
+                    companyStatus.setCode(tpExCompany.getCode());
+                    companyStatus.setName(tpExCompany.getName());
+                    companyStatus.setTPE(true);
+                    return Mono.just(companyStatus);
+                })
+                .concatWith(Flux.fromArray(companies));
+
+        return companyStatusRepo.saveAll(companyStatusFlux);
+    }
+
+    @Override
+    public Flux<TPExStock> getTPExStockFromTPEx(String url) {
+        TPExUrlObject tpExUrlObject = webProvider.getUrlToObject(url, TPExUrlObject.class);
+        return Flux.fromArray(tpExUrlObject.getAaData())
+                .filter(data -> null != data || data.length > 0)
+                .filter(data -> data[0].length() != 6)
+                .flatMap(data -> tpExStockRepo.save(wrapperFromData(data, tpExUrlObject.getReportDate())));
+    }
+
+    private TPExStock wrapperFromData(String[] data, String date) {
+        LocalDate stockDate = LocalDate.parse(date.replaceAll("/", "-"));
+
+        TPExStockId tpExStockId = new TPExStockId();
+        tpExStockId.setCode(data[0]);
+        tpExStockId.setDate(stockDate);
+
+        StockData stockData = new StockData();
+        stockData.setDate(stockDate);
+        stockData.setTradeVolume(transDecimal(data[8]));
+        stockData.setTradeValue(transDecimal(data[9]));
+        stockData.setOpeningPrice(transDecimal(data[4]));
+        stockData.setHighestPrice(transDecimal(data[5]));
+        stockData.setLowestPrice(transDecimal(data[6]));
+        stockData.setClosingPrice(transDecimal(data[2]));
+        stockData.setChange(transDecimal(data[3]));
+
+        TPExStock tpExStock = new TPExStock();
+        tpExStock.setTpExStockId(tpExStockId);
+        tpExStock.setStockData(stockData);
+
+        tpExStock.setUpdateDate(LocalDate.now());
+
+        return tpExStock;
     }
 
     private StockMonthData transStockMonthData(String[][] data, String code) {

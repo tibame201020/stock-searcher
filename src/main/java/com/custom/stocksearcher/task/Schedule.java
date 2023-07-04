@@ -4,24 +4,23 @@ import com.custom.stocksearcher.config.LocalDateTypeAdapter;
 import com.custom.stocksearcher.models.CodeWithYearMonth;
 import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.models.StockMonthData;
+import com.custom.stocksearcher.models.tpex.TPExStock;
+import com.custom.stocksearcher.models.tpex.TPExStockId;
 import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.StockMonthDataRepo;
+import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.stream.JsonReader;
 import jakarta.annotation.PostConstruct;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.json.GsonJsonParser;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,9 +30,11 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 
 import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_BEGIN;
+import static com.custom.stocksearcher.constant.Constant.TPEx_LIST_URL;
 
 /**
  * 股價爬蟲Task
@@ -49,6 +50,8 @@ public class Schedule {
     private DateProvider dateProvider;
     @Autowired
     private StockMonthDataRepo stockMonthDataRepo;
+    @Autowired
+    private TPExStockRepo tpExStockRepo;
 
     /**
      * 爬蟲主程式 (啟動時執行一次 每日九點執行一次)
@@ -62,13 +65,17 @@ public class Schedule {
     @PostConstruct
     public void crawlStockData() throws Exception {
         checkImportFile();
-        
-        
+        checkImportTPExFile();
+        takeListedStock();
+        takeTPExList();
+    }
+
+    private void takeListedStock() {
+        Flux<CompanyStatus> companyStatusFlux = checkCompaniesData();
         List<YearMonth> yearMonths = dateProvider.calculateMonthList(
                 LocalDate.parse(STOCK_CRAWLER_BEGIN),
                 LocalDate.now()
         );
-        Flux<CompanyStatus> companyStatusFlux = checkCompaniesData();
 
         Flux<CodeWithYearMonth> codeYearMonthFlux = companyStatusFlux.flatMap(companyStatus ->
                 Flux.fromIterable(yearMonths).map(yearMonth -> new CodeWithYearMonth(companyStatus.getCode(), yearMonth))
@@ -108,6 +115,69 @@ public class Schedule {
                 );
     }
 
+    private void takeTPExList() {
+        Flux<TPExStock> defaultTpExStockMono = Flux.defer(() -> {
+            TPExStockId tpExStockId = new TPExStockId();
+            tpExStockId.setDate(LocalDate.parse(STOCK_CRAWLER_BEGIN));
+            TPExStock tpExStock = new TPExStock();
+            tpExStock.setTpExStockId(tpExStockId);
+            return Mono.just(tpExStock);
+        });
+
+        Mono<TPExStock> tpExStockMono = tpExStockRepo.findAll()
+                .sort(Comparator.comparing(TPExStock::getUpdateDate))
+                .sort(Comparator.comparing(tpExStock -> tpExStock.getTpExStockId().getDate()))
+                .switchIfEmpty(defaultTpExStockMono)
+                .last();
+
+        tpExStockMono
+                .flux()
+                .flatMap(tpExStock -> Mono.just(tpExStock.getTpExStockId().getDate().minusDays(7)))
+                .flatMap(beginDate -> Flux.fromIterable(dateProvider.calculateMonthList(beginDate, LocalDate.now())))
+                .flatMap(yearMonth ->
+                        Flux.range(1, yearMonth.lengthOfMonth()).map(yearMonth::atDay))
+                .filter(date -> date.isBefore(LocalDate.now()))
+                .flatMap(date -> Mono.just(date.toString().replaceAll("-", "/")))
+                .flatMap(dateStr -> Mono.just(String.format(TPEx_LIST_URL, dateStr)))
+                .flatMap(url -> stockCrawler.getTPExStockFromTPEx(url))
+                .subscribe(
+                        result -> {
+                            log.info("get TPExStock : " + result);
+                        },
+                        err -> {
+                            err.printStackTrace();
+                            log.error(String.format("get TPExStock error: %s", err));
+                        },
+                        () -> {
+                            log.info("crawl TPExStock finish at " + dateProvider.getSystemDateTimeFormat());
+//                            writeTPEXToFile();
+                        }
+                );
+    }
+
+    private void checkImportTPExFile() throws IOException {
+        String file = "stocksTPEX";
+        Path path = Paths.get(file);
+        boolean exists = Files.exists(path);
+        if (!exists) {
+            return;
+        }
+
+        String json = Files.readString(path);
+        String[] strArray = json.split("\n");
+
+        Flux.fromArray(strArray)
+                .flatMap(
+                        str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
+                                .create().fromJson(str, TPExStock.class)))
+                .flatMap(tpExStock -> tpExStockRepo.save(tpExStock))
+                .subscribe(
+                        tpExStock -> log.info("save to elasticsearch : " + tpExStock),
+                        err -> log.error("error : " + err.getMessage()),
+                        () -> log.info("import tpExStock finish at " + dateProvider.getSystemDateTimeFormat())
+                );
+    }
+
     private void checkImportFile() throws IOException {
         String file = "stocks";
         Path path = Paths.get(file);
@@ -121,8 +191,8 @@ public class Schedule {
 
         Flux.fromArray(strArray)
                 .flatMap(
-                str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
-                        .create().fromJson(str, StockMonthData.class)))
+                        str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
+                                .create().fromJson(str, StockMonthData.class)))
                 .flatMap(stockMonthData -> stockMonthDataRepo.save(stockMonthData))
                 .subscribe(
                         stockMonthData -> log.info("save to elasticsearch : " + stockMonthData),
@@ -130,6 +200,19 @@ public class Schedule {
                         () -> log.info("import stockMonthData finish at " + dateProvider.getSystemDateTimeFormat())
                 );
     }
+
+    private void writeTPEXToFile() {
+        String file = "stocksTPEX";
+        Flux<TPExStock> tpExStockRepoAll = tpExStockRepo.findAll();
+        Flux<String> dataFlux = tpExStockRepoAll
+                .flatMap(tpExStock -> Flux.just(
+                        new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
+                                .create()
+                                .toJson(tpExStock)));
+        Path path = Paths.get(file);
+        writeFile(dataFlux, path).subscribe();
+    }
+
 
     private void writeToFile() {
         String file = "stocks";
@@ -179,7 +262,7 @@ public class Schedule {
             log.info("need update companies list");
             return stockCrawler.getCompanies();
         });
-        return companyStatusFlux.switchIfEmpty(fromOpenApiFlux);
+        return companyStatusFlux.switchIfEmpty(fromOpenApiFlux).filter(companyStatus -> !companyStatus.isTPE());
     }
 
     private Flux<StockMonthData> getStockMonthDataFluxFromDB(String code, YearMonth yearMonth) {

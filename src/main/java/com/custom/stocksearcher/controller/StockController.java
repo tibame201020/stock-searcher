@@ -17,6 +17,7 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -49,15 +50,32 @@ public class StockController {
      */
     @RequestMapping("/findStockInfo")
     public Flux<StockData> findStockInfo(@RequestBody CodeParam codeParam) {
-        return stockFinder
+
+        Flux<StockData> tpexStockDataFlux = stockFinder.findTPExStock(codeParam);
+
+
+        Flux<StockData> listedStockDataFlux = stockFinder
                 .findStock(codeParam.getCode(), codeParam.getBeginDate(), codeParam.getEndDate())
-                .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()))
+                .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()));
+
+        return companyStatusRepo.findAllById(Collections.singleton(codeParam.getCode()))
+                .flatMap(companyStatus -> {
+                    if (companyStatus.isTPE()) {
+                        return tpexStockDataFlux;
+                    } else {
+                        return listedStockDataFlux;
+                    }
+                })
                 .filter(stockData -> stockData.getDate().isBefore(LocalDate.now()))
                 .filter(stockData ->
                         stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
                                 && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
                 )
-                .sort(Comparator.comparing(StockData::getDate));
+                .sort(Comparator.comparing(StockData::getDate))
+                .filter(stockData -> stockData.getOpeningPrice() != null
+                        && stockData.getClosingPrice() != null
+                        && stockData.getHighestPrice() != null
+                        && stockData.getLowestPrice() != null);
     }
 
     @RequestMapping("/findCompaniesByKeyWord")

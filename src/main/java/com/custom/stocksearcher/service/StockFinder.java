@@ -1,6 +1,8 @@
 package com.custom.stocksearcher.service;
 
+import com.custom.stocksearcher.models.CodeParam;
 import com.custom.stocksearcher.models.CompanyStatus;
+import com.custom.stocksearcher.models.StockData;
 import com.custom.stocksearcher.models.StockMonthData;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -29,4 +31,6 @@ public interface StockFinder {
      * @return
      */
     Flux<CompanyStatus> findCompaniesByKeyWord(String keyword);
+
+    Flux<StockData> findTPExStock(CodeParam codeParam);
 }

@@ -14,10 +14,17 @@ public class Constant {
      * 取得股票資訊網址 填入西元年月日 & stockCode
      */
     public static final String STOCK_INFO_URL = "https://www.twse.com.tw/en/exchangeReport/STOCK_DAY?response=json&date=%s&stockNo=%s";
+
+    /**
+     * 上櫃歷史股價 填入date ex:2022/03/01
+     */
+    public static final String TPEx_LIST_URL = "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php?l=en-us&d=%s";
     /**
      * 取得所有公司名稱與股票代號
      */
     public static final String COMPANY_URL = "https://openapi.twse.com.tw/v1/exchangeReport/TWTB4U";
+
+    public static final String TPEx_COMPANY_URL = "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O";
 
     /**
      * 定義schedule爬蟲起始日期
