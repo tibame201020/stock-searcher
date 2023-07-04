@@ -1,5 +1,6 @@
 package com.custom.stocksearcher.task;
 
+import com.custom.stocksearcher.config.LocalDateTypeAdapter;
 import com.custom.stocksearcher.models.CodeWithYearMonth;
 import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.models.StockMonthData;
@@ -7,14 +8,25 @@ import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.StockMonthDataRepo;
 import com.custom.stocksearcher.service.StockCrawler;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.stream.JsonReader;
 import jakarta.annotation.PostConstruct;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.json.GsonJsonParser;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
+import java.io.FileReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -48,7 +60,10 @@ public class Schedule {
      */
     @Scheduled(cron = "0 0 2 * * *")
     @PostConstruct
-    public void crawlStockData() {
+    public void crawlStockData() throws Exception {
+        checkImportFile();
+        
+        
         List<YearMonth> yearMonths = dateProvider.calculateMonthList(
                 LocalDate.parse(STOCK_CRAWLER_BEGIN),
                 LocalDate.now()
@@ -86,8 +101,71 @@ public class Schedule {
                             err.printStackTrace();
                             log.error(String.format("get stockMonthData error: %s", err));
                         },
-                        () -> log.info("crawl stockMonthData finish at " + dateProvider.getSystemDateTimeFormat())
+                        () -> {
+                            log.info("crawl stockMonthData finish at " + dateProvider.getSystemDateTimeFormat());
+//                            writeToFile();
+                        }
                 );
+    }
+
+    private void checkImportFile() throws IOException {
+        String file = "stocks";
+        Path path = Paths.get(file);
+        boolean exists = Files.exists(path);
+        if (!exists) {
+            return;
+        }
+
+        String json = Files.readString(path);
+        String[] strArray = json.split("\n");
+
+        Flux.fromArray(strArray)
+                .flatMap(
+                str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
+                        .create().fromJson(str, StockMonthData.class)))
+                .flatMap(stockMonthData -> stockMonthDataRepo.save(stockMonthData))
+                .subscribe(
+                        stockMonthData -> log.info("save to elasticsearch : " + stockMonthData),
+                        err -> log.error("error : " + err.getMessage()),
+                        () -> log.info("import stockMonthData finish at " + dateProvider.getSystemDateTimeFormat())
+                );
+    }
+
+    private void writeToFile() {
+        String file = "stocks";
+        Flux<StockMonthData> stockMonthDataFlux = stockMonthDataRepo.findAll();
+        Flux<String> dataFlux = stockMonthDataFlux
+                .flatMap(stockMonthData -> Flux.just(
+                        new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
+                                .create()
+                                .toJson(stockMonthData)));
+        Path path = Paths.get(file);
+        writeFile(dataFlux, path).subscribe();
+    }
+
+    private Flux<String> writeFile(Flux<String> dataFlux, Path path) {
+        return Flux.using(
+                () -> Files.newBufferedWriter(path, StandardOpenOption.CREATE),
+                writer -> dataFlux.doOnNext(line -> {
+                    try {
+                        writer.write(line + System.lineSeparator());
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }),
+                writer -> {
+                    try {
+                        writer.flush();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    try {
+                        writer.close();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
     }
 
     /**
