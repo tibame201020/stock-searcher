@@ -42,7 +42,12 @@ public class StockCrawlerImpl implements StockCrawler {
     @Override
     public Mono<StockMonthData> getStockMonthDataFromTWSEApi(String stockCode, String dateStr) {
         String url = String.format(STOCK_INFO_URL, dateStr, stockCode);
-        StockBasicInfo stockBasicInfo = webProvider.getUrlToObject(url, StockBasicInfo.class);
+        StockBasicInfo stockBasicInfo;
+        try {
+            stockBasicInfo = webProvider.getUrlToObject(url, StockBasicInfo.class);
+        } catch (Exception e) {
+            stockBasicInfo = null;
+        }
 
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder
@@ -98,11 +103,19 @@ public class StockCrawlerImpl implements StockCrawler {
 
     @Override
     public Flux<TPExStock> getTPExStockFromTPEx(String url) {
-        TPExUrlObject tpExUrlObject = webProvider.getUrlToObject(url, TPExUrlObject.class);
+        TPExUrlObject tpExUrlObject;
+        try {
+            tpExUrlObject = webProvider.getUrlToObject(url, TPExUrlObject.class);
+        } catch (Exception e) {
+            tpExUrlObject = new TPExUrlObject();
+            tpExUrlObject.setAaData(new String[0][0]);
+        }
+        String reportDate = tpExUrlObject.getReportDate();
+
         return Flux.fromArray(tpExUrlObject.getAaData())
                 .filter(data -> null != data || data.length > 0)
                 .filter(data -> data[0].length() != 6)
-                .flatMap(data -> Flux.just(wrapperFromData(data, tpExUrlObject.getReportDate())))
+                .flatMap(data -> Flux.just(wrapperFromData(data, reportDate)))
                 .buffer()
                 .flatMap(tpExStockList -> tpExStockRepo.saveAll(tpExStockList));
     }
