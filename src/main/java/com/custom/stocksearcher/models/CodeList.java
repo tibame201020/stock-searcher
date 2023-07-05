@@ -12,6 +12,10 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * 封裝CodeList
+ * 便於儲存篩選結果
+ */
 @ToString
 @NoArgsConstructor
 @Getter

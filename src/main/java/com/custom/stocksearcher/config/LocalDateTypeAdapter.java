@@ -6,6 +6,9 @@ import java.lang.reflect.Type;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * LocalDate轉json adapter
+ */
 public class LocalDateTypeAdapter
         implements JsonSerializer<LocalDate>, JsonDeserializer<LocalDate> {
 

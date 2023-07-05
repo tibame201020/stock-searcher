@@ -10,6 +10,9 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import java.io.Serializable;
 import java.time.LocalDate;
 
+/**
+ * 上櫃公司股價bean
+ */
 @ToString
 @Setter
 @Getter
@@ -20,6 +23,8 @@ public class TPExStock implements Serializable {
     @Id
     private TPExStockId tpExStockId;
     private StockData stockData;
+    @Field(type = FieldType.Date, pattern = "yyyy-MM-dd")
+    private LocalDate date;
     @Field(type = FieldType.Date, pattern = "yyyy-MM-dd")
     private LocalDate updateDate;
 }

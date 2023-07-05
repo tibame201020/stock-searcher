@@ -95,13 +95,24 @@ public class StockCalculatorImpl implements StockCalculator {
                 });
     }
 
+    /**
+     * 取得區間最少交易量
+     *
+     * @param stockDataFlux 股價Flux
+     * @return Mono<StockData>
+     */
     private Mono<StockData> getLowTradeVolume(Flux<StockData> stockDataFlux) {
         return stockDataFlux.reduce((stockData1, stockData2) ->
                 stockData1.getTradeVolume().compareTo(stockData2.getTradeVolume()) < 0 ?
                         stockData1 : stockData2);
     }
 
-
+    /**
+     * 取得區間最高價
+     *
+     * @param stockDataFlux 股價Flux
+     * @return Mono<StockData>
+     */
     private Mono<StockData> getHighestStockData(Flux<StockData> stockDataFlux) {
         return stockDataFlux.reduce((stockData1, stockData2) -> {
             BigDecimal stock1Price = getStockDataHighest(stockData1);
@@ -120,6 +131,12 @@ public class StockCalculatorImpl implements StockCalculator {
         });
     }
 
+    /**
+     * 取得區間最低價
+     *
+     * @param stockDataFlux 股價Flux
+     * @return Mono<StockData>
+     */
     private Mono<StockData> getLowestStockData(Flux<StockData> stockDataFlux) {
         return stockDataFlux.reduce((stockData1, stockData2) -> {
             BigDecimal stock1Price = getStockDataLowest(stockData1);
@@ -138,6 +155,12 @@ public class StockCalculatorImpl implements StockCalculator {
         });
     }
 
+    /**
+     * 取得當日最低價
+     *
+     * @param stockData 股價bean
+     * @return result
+     */
     private BigDecimal getStockDataLowest(StockData stockData) {
         BigDecimal highestPrice = stockData.getHighestPrice();
         BigDecimal lowestPrice = stockData.getLowestPrice();
@@ -150,6 +173,12 @@ public class StockCalculatorImpl implements StockCalculator {
                 .orElse(null);
     }
 
+    /**
+     * 取得當日最高價
+     *
+     * @param stockData 股價bean
+     * @return result
+     */
     private BigDecimal getStockDataHighest(StockData stockData) {
         BigDecimal highestPrice = stockData.getHighestPrice();
         BigDecimal lowestPrice = stockData.getLowestPrice();
@@ -163,6 +192,13 @@ public class StockCalculatorImpl implements StockCalculator {
     }
 
 
+    /**
+     * StockMAResult 封裝
+     *
+     * @param window StockDataList
+     * @param code   股票代號
+     * @return StockMAResult MA計算bean
+     */
     private StockMAResult calcStockMa(List<StockData> window, String code) {
         BigDecimal ma5 = calculateMA(window, 5);
         BigDecimal ma10 = calculateMA(window, 10);
@@ -196,6 +232,13 @@ public class StockCalculatorImpl implements StockCalculator {
         return stockMAResult;
     }
 
+    /**
+     * 實際計算MA
+     *
+     * @param window stockDataList
+     * @param period 計算天數
+     * @return 計算結果
+     */
     private BigDecimal calculateMA(List<StockData> window, int period) {
         if (window.size() < period) {
             return null;

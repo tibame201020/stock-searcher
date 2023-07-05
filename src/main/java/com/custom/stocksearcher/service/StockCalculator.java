@@ -24,5 +24,12 @@ public interface StockCalculator {
      */
     Mono<StockBumpy> getRangeOfHighAndLowPoint(Flux<StockData> stockDataFlux, CodeParam codeParam);
 
+    /**
+     * 取得StockMAResult Flux
+     *
+     * @param stockDataFlux 需計算的StockDataFlux
+     * @param code          股票代號
+     * @return 計算結果StockMAResult Flux
+     */
     Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, String code);
 }

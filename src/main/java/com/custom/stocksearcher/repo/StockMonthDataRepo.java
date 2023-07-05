@@ -11,6 +11,5 @@ import java.time.LocalDate;
 @Repository
 public interface StockMonthDataRepo extends ReactiveElasticsearchRepository<StockMonthData, StockMonthDataId> {
     Flux<StockMonthData> findByCodeAndYearMonthAndIsHistory(String code, String yearMonth, boolean isHistory);
-
     Flux<StockMonthData> findByCodeAndYearMonthAndIsHistoryAndUpdateDate(String code, String yearMonth, boolean isHistory, LocalDate updateDate);
 }

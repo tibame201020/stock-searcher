@@ -11,6 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * 日期 util
+ */
 @Component
 public class DateProvider {
 
@@ -55,6 +58,10 @@ public class DateProvider {
         return monthList;
     }
 
+    /**
+     * 取得系統日期
+     * @return 系統日期
+     */
     public String getSystemDateTimeFormat() {
         ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
 

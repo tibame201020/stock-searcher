@@ -13,7 +13,6 @@ import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -79,11 +78,12 @@ public class StockCrawlerImpl implements StockCrawler {
     @Override
     public Flux<CompanyStatus> getCompanies() {
         log.info("===============================================\n從網路取得資料公司資料");
-        TPExCompany[] tpExCompanies = new RestTemplate().getForObject(TPEx_COMPANY_URL, TPExCompany[].class);
-        CompanyStatus[] companies = new RestTemplate().getForObject(COMPANY_URL, CompanyStatus[].class);
+        TPExCompany[] tpExCompanies = webProvider.getUrlToObject(TPEx_COMPANY_URL, TPExCompany[].class);
+        CompanyStatus[] companies = webProvider.getUrlToObject(COMPANY_URL, CompanyStatus[].class);
         assert tpExCompanies != null;
         assert companies != null;
         Flux<CompanyStatus> companyStatusFlux = Flux.fromArray(tpExCompanies)
+                .filter(tpExCompany -> tpExCompany.getCode().length() != 6)
                 .flatMap(tpExCompany -> {
                     CompanyStatus companyStatus = new CompanyStatus();
                     companyStatus.setCode(tpExCompany.getCode());
@@ -102,7 +102,9 @@ public class StockCrawlerImpl implements StockCrawler {
         return Flux.fromArray(tpExUrlObject.getAaData())
                 .filter(data -> null != data || data.length > 0)
                 .filter(data -> data[0].length() != 6)
-                .flatMap(data -> tpExStockRepo.save(wrapperFromData(data, tpExUrlObject.getReportDate())));
+                .flatMap(data -> Flux.just(wrapperFromData(data, tpExUrlObject.getReportDate())))
+                .buffer()
+                .flatMap(tpExStockList -> tpExStockRepo.saveAll(tpExStockList));
     }
 
     private TPExStock wrapperFromData(String[] data, String date) {
@@ -125,7 +127,7 @@ public class StockCrawlerImpl implements StockCrawler {
         TPExStock tpExStock = new TPExStock();
         tpExStock.setTpExStockId(tpExStockId);
         tpExStock.setStockData(stockData);
-
+        tpExStock.setDate(stockDate);
         tpExStock.setUpdateDate(LocalDate.now());
 
         return tpExStock;

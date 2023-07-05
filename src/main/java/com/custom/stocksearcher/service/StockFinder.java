@@ -3,7 +3,6 @@ package com.custom.stocksearcher.service;
 import com.custom.stocksearcher.models.CodeParam;
 import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.models.StockData;
-import com.custom.stocksearcher.models.StockMonthData;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Flux;
@@ -17,12 +16,10 @@ public interface StockFinder {
     /**
      * 查詢股價資訊
      *
-     * @param stockCode 股票代號
-     * @param begin     開始日期
-     * @param end       結束日期
+     * @param codeParam 查詢bean
      * @return 股價資訊列表
      */
-    Flux<StockMonthData> findStock(String stockCode, String begin, String end);
+    Flux<StockData> findStockInfo(CodeParam codeParam);
 
     /**
      * 根據關鍵字查找company list
@@ -32,5 +29,4 @@ public interface StockFinder {
      */
     Flux<CompanyStatus> findCompaniesByKeyWord(String keyword);
 
-    Flux<StockData> findTPExStock(CodeParam codeParam);
 }

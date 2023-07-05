@@ -13,7 +13,9 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-
+/**
+ * MA股價封裝
+ */
 @ToString
 @NoArgsConstructor
 @Getter

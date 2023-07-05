@@ -7,6 +7,9 @@ import org.springframework.web.reactive.config.WebFluxConfigurer;
 
 import static com.custom.stocksearcher.constant.Constant.CORS_URLS;
 
+/**
+ * 跨域請求設定
+ */
 @EnableWebFlux
 @Configuration
 public class WebConfig implements WebFluxConfigurer {

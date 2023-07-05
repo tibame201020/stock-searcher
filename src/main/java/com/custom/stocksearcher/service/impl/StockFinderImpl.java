@@ -8,7 +8,6 @@ import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.StockMonthDataRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
-import com.custom.stocksearcher.service.StockCrawler;
 import com.custom.stocksearcher.service.StockFinder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -29,32 +28,47 @@ public class StockFinderImpl implements StockFinder {
     @Autowired
     private CompanyStatusRepo companyStatusRepo;
     @Autowired
-    private StockCrawler stockCrawler;
+    private TPExStockRepo tpExStockRepo;
     @Autowired
     private DateProvider dateProvider;
-    @Autowired
-    private TPExStockRepo tpExStockRepo;
 
 
     @Override
-    public Flux<StockMonthData> findStock(String stockCode, String begin, String end) {
-        LocalDate beginDate = LocalDate.parse(begin).withDayOfMonth(1);
-        LocalDate endDate = LocalDate.parse(end).withDayOfMonth(1);
+    public Flux<StockData> findStockInfo(CodeParam codeParam) {
+        Flux<StockData> tpexStockDataFlux = findTPExStock(codeParam);
+        Flux<StockData> listedStockDataFlux = findListedStock(codeParam);
 
-        List<YearMonth> monthList = dateProvider.calculateMonthList(beginDate, endDate);
-        return companyStatusRepo
-                .findAllById(Collections.singleton(stockCode))
-                .filter(companyStatus -> !companyStatus.isTPE())
-                .flatMap(companyStatus -> Flux.fromIterable(monthList).flatMap(month -> processMonth(companyStatus.getCode(), month)));
+        return companyStatusRepo.findAllById(Collections.singleton(codeParam.getCode()))
+                .flatMap(companyStatus -> {
+                    if (companyStatus.isTPE()) {
+                        return tpexStockDataFlux;
+                    } else {
+                        return listedStockDataFlux;
+                    }
+                })
+                .filter(stockData -> stockData.getDate().isBefore(LocalDate.now()))
+                .filter(stockData ->
+                        stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
+                                && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
+                )
+                .filter(this::verifyStockData)
+                .sort(Comparator.comparing(StockData::getDate));
     }
 
     @Override
     public Flux<CompanyStatus> findCompaniesByKeyWord(String keyword) {
-        if (keyword == null || keyword.length() < 2) {
-            return null;
+        if (null == keyword || keyword.length() < 2) {
+            return Flux.empty();
         }
         return companyStatusRepo
                 .findAll()
+                .filter(companyStatus -> {
+                    if (companyStatus.isTPE()) {
+                        return companyStatus.getCode().length() != 6;
+                    } else {
+                        return true;
+                    }
+                })
                 .flatMap(companyStatus -> {
                     companyStatus.setUpdateDate(null);
                     return Mono.just(companyStatus);
@@ -62,21 +76,23 @@ public class StockFinderImpl implements StockFinder {
                 .filter(companyStatus -> companyStatus.toString().contains(keyword));
     }
 
-    @Override
-    public Flux<StockData> findTPExStock(CodeParam codeParam) {
-        return tpExStockRepo
-                .findByTpExStockId_CodeAndTpExStockId_DateBetween(
-                        codeParam.getCode(),
-                        LocalDate.parse(codeParam.getBeginDate()),
-                        LocalDate.parse(codeParam.getEndDate())
-                ).
-                flatMap(tpExStock -> Flux.just(tpExStock.getStockData()))
-                .filter(stockData -> stockData.getDate().isBefore(LocalDate.now()))
-                .filter(stockData ->
-                        stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
-                                && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
-                )
-                .sort(Comparator.comparing(StockData::getDate));
+
+    /**
+     * 上市股票查詢
+     *
+     * @param codeParam
+     * @return
+     */
+    private Flux<StockData> findListedStock(CodeParam codeParam) {
+        LocalDate beginDate = LocalDate.parse(codeParam.getBeginDate()).withDayOfMonth(1);
+        LocalDate endDate = LocalDate.parse(codeParam.getEndDate()).withDayOfMonth(1);
+
+        List<YearMonth> monthList = dateProvider.calculateMonthList(beginDate, endDate);
+        return companyStatusRepo
+                .findAllById(Collections.singleton(codeParam.getCode()))
+                .filter(companyStatus -> !companyStatus.isTPE())
+                .flatMap(companyStatus -> Flux.fromIterable(monthList).flatMap(month -> processMonth(companyStatus.getCode(), month)))
+                .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()));
     }
 
     /**
@@ -97,6 +113,39 @@ public class StockFinderImpl implements StockFinder {
         }
 
         return existingData;
+    }
+
+    /**
+     * 上櫃股票查詢
+     *
+     * @param codeParam
+     * @return
+     */
+    private Flux<StockData> findTPExStock(CodeParam codeParam) {
+        return companyStatusRepo
+                .findAllById(Collections.singleton(codeParam.getCode()))
+                .filter(CompanyStatus::isTPE)
+                .filter(companyStatus -> companyStatus.getCode().length() != 6)
+                .flatMap(companyStatus -> tpExStockRepo
+                        .findByTpExStockId_CodeAndTpExStockId_DateBetween(
+                                companyStatus.getCode(),
+                                LocalDate.parse(codeParam.getBeginDate()),
+                                LocalDate.parse(codeParam.getEndDate())
+                        )).
+                flatMap(tpExStock -> Flux.just(tpExStock.getStockData()));
+    }
+
+    /**
+     * 確保stockData為有效資料
+     *
+     * @param stockData
+     * @return
+     */
+    private boolean verifyStockData(StockData stockData) {
+        return stockData.getOpeningPrice() != null
+                && stockData.getClosingPrice() != null
+                && stockData.getHighestPrice() != null
+                && stockData.getLowestPrice() != null;
     }
 
 }

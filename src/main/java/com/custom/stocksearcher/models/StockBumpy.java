@@ -9,6 +9,9 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * 計算結果封裝bean
+ */
 @ToString
 @NoArgsConstructor
 @Getter

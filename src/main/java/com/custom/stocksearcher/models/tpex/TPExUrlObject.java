@@ -8,6 +8,9 @@ import lombok.ToString;
 
 import java.io.Serializable;
 
+/**
+ * 對應TPEX回傳上櫃股價資訊bean
+ */
 @ToString
 @NoArgsConstructor
 @Getter

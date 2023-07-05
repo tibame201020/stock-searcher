@@ -5,6 +5,9 @@ import lombok.*;
 
 import java.io.Serializable;
 
+/**
+ * 上櫃公司資訊
+ */
 @ToString
 @Setter
 @Getter

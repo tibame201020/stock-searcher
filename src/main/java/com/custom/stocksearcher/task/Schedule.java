@@ -30,7 +30,6 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
 import java.util.List;
 
 import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_BEGIN;
@@ -45,9 +44,9 @@ public class Schedule {
     @Autowired
     private StockCrawler stockCrawler;
     @Autowired
-    private CompanyStatusRepo companyStatusRepo;
-    @Autowired
     private DateProvider dateProvider;
+    @Autowired
+    private CompanyStatusRepo companyStatusRepo;
     @Autowired
     private StockMonthDataRepo stockMonthDataRepo;
     @Autowired
@@ -70,6 +69,9 @@ public class Schedule {
         takeTPExList();
     }
 
+    /**
+     * 上市股票爬蟲
+     */
     private void takeListedStock() {
         Flux<CompanyStatus> companyStatusFlux = checkCompaniesData();
         List<YearMonth> yearMonths = dateProvider.calculateMonthList(
@@ -115,8 +117,11 @@ public class Schedule {
                 );
     }
 
+    /**
+     * 上櫃股票爬蟲
+     */
     private void takeTPExList() {
-        Flux<TPExStock> defaultTpExStockMono = Flux.defer(() -> {
+        Mono<TPExStock> defaultTpExStockMono = Mono.defer(() -> {
             TPExStockId tpExStockId = new TPExStockId();
             tpExStockId.setDate(LocalDate.parse(STOCK_CRAWLER_BEGIN));
             TPExStock tpExStock = new TPExStock();
@@ -124,15 +129,11 @@ public class Schedule {
             return Mono.just(tpExStock);
         });
 
-        Mono<TPExStock> tpExStockMono = tpExStockRepo.findAll()
-                .sort(Comparator.comparing(TPExStock::getUpdateDate))
-                .sort(Comparator.comparing(tpExStock -> tpExStock.getTpExStockId().getDate()))
-                .switchIfEmpty(defaultTpExStockMono)
-                .last();
+        Mono<TPExStock> tpExStockMono = tpExStockRepo.findFirstByOrderByDateDescUpdateDateDesc()
+                .switchIfEmpty(defaultTpExStockMono);
 
-        tpExStockMono
-                .flux()
-                .flatMap(tpExStock -> Mono.just(tpExStock.getTpExStockId().getDate().minusDays(7)))
+        Flux.from(tpExStockMono)
+                .flatMap(tpExStock -> Mono.just(tpExStock.getTpExStockId().getDate().minusDays(2)))
                 .flatMap(beginDate -> Flux.fromIterable(dateProvider.calculateMonthList(beginDate, LocalDate.now())))
                 .flatMap(yearMonth ->
                         Flux.range(1, yearMonth.lengthOfMonth()).map(yearMonth::atDay))
@@ -155,6 +156,10 @@ public class Schedule {
                 );
     }
 
+    /**
+     * 上櫃股價資料匯入
+     * @throws IOException
+     */
     private void checkImportTPExFile() throws IOException {
         String file = "stocksTPEX";
         Path path = Paths.get(file);
@@ -170,7 +175,8 @@ public class Schedule {
                 .flatMap(
                         str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
                                 .create().fromJson(str, TPExStock.class)))
-                .flatMap(tpExStock -> tpExStockRepo.save(tpExStock))
+                .buffer()
+                .flatMap(tpExStockList -> tpExStockRepo.saveAll(tpExStockList))
                 .subscribe(
                         tpExStock -> log.info("save to elasticsearch : " + tpExStock),
                         err -> log.error("error : " + err.getMessage()),
@@ -178,6 +184,10 @@ public class Schedule {
                 );
     }
 
+    /**
+     * 上市股價資料匯入
+     * @throws IOException
+     */
     private void checkImportFile() throws IOException {
         String file = "stocks";
         Path path = Paths.get(file);
@@ -193,7 +203,8 @@ public class Schedule {
                 .flatMap(
                         str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
                                 .create().fromJson(str, StockMonthData.class)))
-                .flatMap(stockMonthData -> stockMonthDataRepo.save(stockMonthData))
+                .buffer()
+                .flatMap(stockMonthDataList -> stockMonthDataRepo.saveAll(stockMonthDataList))
                 .subscribe(
                         stockMonthData -> log.info("save to elasticsearch : " + stockMonthData),
                         err -> log.error("error : " + err.getMessage()),
@@ -201,6 +212,9 @@ public class Schedule {
                 );
     }
 
+    /**
+     * 上櫃股價資料匯出
+     */
     private void writeTPEXToFile() {
         String file = "stocksTPEX";
         Flux<TPExStock> tpExStockRepoAll = tpExStockRepo.findAll();
@@ -213,7 +227,9 @@ public class Schedule {
         writeFile(dataFlux, path).subscribe();
     }
 
-
+    /**
+     * 上市股價資料匯出
+     */
     private void writeToFile() {
         String file = "stocks";
         Flux<StockMonthData> stockMonthDataFlux = stockMonthDataRepo.findAll();
@@ -226,6 +242,12 @@ public class Schedule {
         writeFile(dataFlux, path).subscribe();
     }
 
+    /**
+     * 將data寫至path
+     * @param dataFlux 資料
+     * @param path 目標檔案
+     * @return Flux<String>
+     */
     private Flux<String> writeFile(Flux<String> dataFlux, Path path) {
         return Flux.using(
                 () -> Files.newBufferedWriter(path, StandardOpenOption.CREATE),
@@ -265,6 +287,12 @@ public class Schedule {
         return companyStatusFlux.switchIfEmpty(fromOpenApiFlux).filter(companyStatus -> !companyStatus.isTPE());
     }
 
+    /**
+     * 從database撈取StockMonthData
+     * @param code 股票代號
+     * @param yearMonth 月份
+     * @return Flux<StockMonthData>
+     */
     private Flux<StockMonthData> getStockMonthDataFluxFromDB(String code, YearMonth yearMonth) {
         YearMonth currentMonth = YearMonth.now();
         Flux<StockMonthData> stockMonthDataFlux;
@@ -277,9 +305,14 @@ public class Schedule {
         return stockMonthDataFlux;
     }
 
-
+    /**
+     * 從twse取得StockMonthData
+     * @param code 股票代號
+     * @param yearMonth 月份
+     * @return Flux<StockMonthData>
+     */
     private Flux<StockMonthData> getStockMonthDataFluxFromOpenApi(String code, YearMonth yearMonth) {
-        return stockCrawler.getStockMonthDataFromTWSEApi(code, yearMonth.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"))).flux();
+        return Flux.from(stockCrawler.getStockMonthDataFromTWSEApi(code, yearMonth.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"))));
     }
 
 

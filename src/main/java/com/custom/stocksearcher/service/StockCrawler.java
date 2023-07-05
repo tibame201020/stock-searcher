@@ -16,11 +16,11 @@ public interface StockCrawler {
     Log log = LogFactory.getLog(StockCrawler.class);
 
     /**
-     * 從twse取得股票資訊
+     * 從twse取得股票資訊(上市)
      *
      * @param stockCode 股票代碼
      * @param dateStr   日期
-     * @return Flux<StockData>
+     * @return Mono<StockMonthData>
      */
     Mono<StockMonthData> getStockMonthDataFromTWSEApi(String stockCode, String dateStr);
 
@@ -31,5 +31,11 @@ public interface StockCrawler {
      */
     Flux<CompanyStatus> getCompanies();
 
+    /**
+     * 從tpex取得股票資料(上櫃)
+     *
+     * @param url 爬蟲網址
+     * @return Flux<TPExStock>
+     */
     Flux<TPExStock> getTPExStockFromTPEx(String url);
 }
