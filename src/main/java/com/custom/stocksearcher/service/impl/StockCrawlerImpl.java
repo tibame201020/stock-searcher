@@ -46,7 +46,7 @@ public class StockCrawlerImpl implements StockCrawler {
         try {
             stockBasicInfo = webProvider.getUrlToObject(url, StockBasicInfo.class);
         } catch (Exception e) {
-            stockBasicInfo = null;
+            return Mono.empty();
         }
 
         StringBuilder stringBuilder = new StringBuilder();
@@ -107,8 +107,7 @@ public class StockCrawlerImpl implements StockCrawler {
         try {
             tpExUrlObject = webProvider.getUrlToObject(url, TPExUrlObject.class);
         } catch (Exception e) {
-            tpExUrlObject = new TPExUrlObject();
-            tpExUrlObject.setAaData(new String[0][0]);
+            return Flux.empty();
         }
         String reportDate = tpExUrlObject.getReportDate();
 
