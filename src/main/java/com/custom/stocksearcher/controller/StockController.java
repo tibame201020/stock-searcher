@@ -161,7 +161,7 @@ public class StockController {
     public Flux<StockMAResult> getStockMa(@RequestBody CodeParam codeParam) {
         LocalDate beginDate = LocalDate.parse(codeParam.getBeginDate()).minusDays(1);
         LocalDate endDate = LocalDate.parse(codeParam.getEndDate()).plusDays(1);
-        codeParam.setBeginDate(LocalDate.parse(codeParam.getBeginDate()).minusMonths(5).toString());
+        codeParam.setBeginDate(beginDate.minusMonths(5).toString());
 
         return stockCalculator.getStockMa(findStockInfo(codeParam), codeParam.getCode())
                 .filter(stockMAResult -> stockMAResult.getDate().isBefore(LocalDate.now()))

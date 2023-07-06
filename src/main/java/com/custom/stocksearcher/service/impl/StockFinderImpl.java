@@ -127,7 +127,7 @@ public class StockFinderImpl implements StockFinder {
                 .filter(CompanyStatus::isTPE)
                 .filter(companyStatus -> companyStatus.getCode().length() != 6)
                 .flatMap(companyStatus -> tpExStockRepo
-                        .findByTpExStockId_CodeAndTpExStockId_DateBetween(
+                        .findByTpExStockId_CodeAndDateBetween(
                                 companyStatus.getCode(),
                                 LocalDate.parse(codeParam.getBeginDate()),
                                 LocalDate.parse(codeParam.getEndDate())

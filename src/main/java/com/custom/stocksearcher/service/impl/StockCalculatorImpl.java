@@ -1,6 +1,9 @@
 package com.custom.stocksearcher.service.impl;
 
-import com.custom.stocksearcher.models.*;
+import com.custom.stocksearcher.models.CodeParam;
+import com.custom.stocksearcher.models.StockBumpy;
+import com.custom.stocksearcher.models.StockData;
+import com.custom.stocksearcher.models.StockMAResult;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.service.StockCalculator;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,11 +79,44 @@ public class StockCalculatorImpl implements StockCalculator {
 
     @Override
     public Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, String code) {
-        return stockDataFlux
-                .buffer(60, 1)
-                .filter(list -> list.size() >= 60)
-                .flatMap(window -> Mono.just(calcStockMa(window, code)));
+        Flux<Integer> periods = Flux.just(5, 10, 20, 60);
+
+        return periods
+                .flatMap(period -> getStockMa(stockDataFlux, period))
+                .groupBy(StockMAResult::getDate)
+                .flatMap(group -> group
+                        .collectList()
+                        .map(stockMAResults -> {
+                            StockMAResult mergedResult = new StockMAResult();
+                            mergedResult.setCode(code);
+                            mergedResult.setDate(group.key());
+                            stockMAResults.forEach(
+                                    stockMAResult -> {
+                                        if (null != stockMAResult.getMa5()) {
+                                            mergedResult.setMa5(stockMAResult.getMa5());
+                                        }
+                                        if (null != stockMAResult.getMa10()) {
+                                            mergedResult.setMa10(stockMAResult.getMa10());
+                                        }
+                                        if (null != stockMAResult.getMa20()) {
+                                            mergedResult.setMa20(stockMAResult.getMa20());
+                                        }
+                                        if (null != stockMAResult.getMa60()) {
+                                            mergedResult.setMa60(stockMAResult.getMa60());
+                                        }
+                                    }
+                            );
+                            return mergedResult;
+                        }));
     }
+
+    private Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, int period) {
+        return stockDataFlux
+                .buffer(period, 1)
+                .filter(list -> list.size() >= period)
+                .flatMap(window -> Mono.just(calcStockMa(window, period)));
+    }
+
 
     /**
      * 取得區間最少交易量
@@ -183,32 +219,28 @@ public class StockCalculatorImpl implements StockCalculator {
      * StockMAResult 封裝
      *
      * @param window StockDataList
-     * @param code   股票代號
+     * @param period 計算天數
      * @return StockMAResult MA計算bean
      */
-    private StockMAResult calcStockMa(List<StockData> window, String code) {
-        BigDecimal ma5 = calculateMA(window, 5);
-        BigDecimal ma10 = calculateMA(window, 10);
-        BigDecimal ma20 = calculateMA(window, 20);
-        BigDecimal ma60 = calculateMA(window, 60);
+    private StockMAResult calcStockMa(List<StockData> window, int period) {
+        BigDecimal ma = calculateMA(window, period);
         StockData lastData = window.get(window.size() - 1);
 
         StockMAResult stockMAResult = new StockMAResult();
-        stockMAResult.setMa5(ma5);
-        stockMAResult.setMa10(ma10);
-        stockMAResult.setMa20(ma20);
-        stockMAResult.setMa60(ma60);
-        stockMAResult.setCode(code);
-        stockMAResult.setDate(lastData.getDate());
 
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("\n").append("==============================").append("\n");
-        stringBuilder.append("計算MA").append("\n");
-        stringBuilder.append("代號: ").append(code).append("\n");
-        stringBuilder.append("日期: ").append(lastData.getDate()).append("\n");
-        stringBuilder.append("stockMAResult: ").append(stockMAResult).append("\n");
-        stringBuilder.append("==============================").append("\n");
-        log.info(stringBuilder);
+        if (5 == period) {
+            stockMAResult.setMa5(ma);
+        }
+        if (10 == period) {
+            stockMAResult.setMa10(ma);
+        }
+        if (20 == period) {
+            stockMAResult.setMa20(ma);
+        }
+        if (60 == period) {
+            stockMAResult.setMa60(ma);
+        }
+        stockMAResult.setDate(lastData.getDate());
 
         return stockMAResult;
     }

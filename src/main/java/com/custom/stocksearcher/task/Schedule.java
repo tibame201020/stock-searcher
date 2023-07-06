@@ -158,6 +158,7 @@ public class Schedule {
 
     /**
      * 上櫃股價資料匯入
+     *
      * @throws IOException
      */
     private void checkImportTPExFile() throws IOException {
@@ -186,6 +187,7 @@ public class Schedule {
 
     /**
      * 上市股價資料匯入
+     *
      * @throws IOException
      */
     private void checkImportFile() throws IOException {
@@ -244,8 +246,9 @@ public class Schedule {
 
     /**
      * 將data寫至path
+     *
      * @param dataFlux 資料
-     * @param path 目標檔案
+     * @param path     目標檔案
      * @return Flux<String>
      */
     private Flux<String> writeFile(Flux<String> dataFlux, Path path) {
@@ -289,7 +292,8 @@ public class Schedule {
 
     /**
      * 從database撈取StockMonthData
-     * @param code 股票代號
+     *
+     * @param code      股票代號
      * @param yearMonth 月份
      * @return Flux<StockMonthData>
      */
@@ -307,7 +311,8 @@ public class Schedule {
 
     /**
      * 從twse取得StockMonthData
-     * @param code 股票代號
+     *
+     * @param code      股票代號
      * @param yearMonth 月份
      * @return Flux<StockMonthData>
      */
