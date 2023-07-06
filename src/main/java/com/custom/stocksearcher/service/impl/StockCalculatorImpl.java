@@ -2,7 +2,6 @@ package com.custom.stocksearcher.service.impl;
 
 import com.custom.stocksearcher.models.*;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
-import com.custom.stocksearcher.repo.StockMAResultRepo;
 import com.custom.stocksearcher.service.StockCalculator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,9 +18,6 @@ import java.util.stream.Stream;
 
 @Service
 public class StockCalculatorImpl implements StockCalculator {
-
-    @Autowired
-    private StockMAResultRepo stockMAResultRepo;
 
     @Autowired
     private CompanyStatusRepo companyStatusRepo;
@@ -83,16 +79,7 @@ public class StockCalculatorImpl implements StockCalculator {
         return stockDataFlux
                 .buffer(60, 1)
                 .filter(list -> list.size() >= 60)
-                .flatMap(window -> {
-                    StockMAResultId stockMAResultId = new StockMAResultId();
-                    stockMAResultId.setCode(code);
-                    stockMAResultId.setDate(window.get(window.size() - 1).getDate());
-
-                    Mono<StockMAResult> stockMAResultMono = stockMAResultRepo.findById(stockMAResultId);
-                    Mono<StockMAResult> calcStockMaResult = Mono.defer(() -> stockMAResultRepo.save(calcStockMa(window, code)));
-
-                    return stockMAResultMono.switchIfEmpty(calcStockMaResult);
-                });
+                .flatMap(window -> Mono.just(calcStockMa(window, code)));
     }
 
     /**
@@ -213,12 +200,6 @@ public class StockCalculatorImpl implements StockCalculator {
         stockMAResult.setMa60(ma60);
         stockMAResult.setCode(code);
         stockMAResult.setDate(lastData.getDate());
-
-        StockMAResultId stockMAResultId = new StockMAResultId();
-        stockMAResultId.setCode(code);
-        stockMAResultId.setDate(lastData.getDate());
-
-        stockMAResult.setStockMAResultId(stockMAResultId);
 
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("\n").append("==============================").append("\n");
