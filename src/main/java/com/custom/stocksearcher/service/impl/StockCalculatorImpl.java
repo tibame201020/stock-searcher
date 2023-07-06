@@ -110,6 +110,13 @@ public class StockCalculatorImpl implements StockCalculator {
                         }));
     }
 
+    /**
+     * 根據period取得股價MA
+     *
+     * @param stockDataFlux 股價資料flux
+     * @param period        (5 10 20 60)
+     * @return 計算結果資料flux
+     */
     private Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, int period) {
         return stockDataFlux
                 .buffer(period, 1)

@@ -26,6 +26,7 @@ public interface StockCalculator {
 
     /**
      * 取得StockMAResult Flux
+     * 暫定為計算MA5 MA10 MA20 MA60
      *
      * @param stockDataFlux 需計算的StockDataFlux
      * @param code          股票代號
