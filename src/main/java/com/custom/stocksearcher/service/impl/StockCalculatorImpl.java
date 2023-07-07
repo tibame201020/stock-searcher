@@ -83,7 +83,7 @@ public class StockCalculatorImpl implements StockCalculator {
                 .groupBy(StockMAResult::getDate)
                 .flatMap(group -> group
                         .collectList()
-                        .map(stockMAResults -> {
+                        .flatMap(stockMAResults -> {
                             StockMAResult mergedResult = new StockMAResult();
                             mergedResult.setCode(code);
                             mergedResult.setDate(group.key());
@@ -106,7 +106,7 @@ public class StockCalculatorImpl implements StockCalculator {
                                         }
                                     }
                             );
-                            return mergedResult;
+                            return Mono.just(mergedResult);
                         }));
     }
 
