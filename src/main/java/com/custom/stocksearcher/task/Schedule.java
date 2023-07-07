@@ -12,7 +12,6 @@ import com.custom.stocksearcher.repo.StockMonthDataRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
 import com.google.gson.GsonBuilder;
-import jakarta.annotation.PostConstruct;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,15 +52,13 @@ public class Schedule {
     private TPExStockRepo tpExStockRepo;
 
     /**
-     * 爬蟲主程式 (啟動時執行一次 每日九點執行一次)
-     * 1.yearMonths: 抓取資料日期區間
-     * 2.companyStatusFlux: 全上市公司列表，每日更新一次
-     * 3.codeYearMonthFlux: 股市代號與日期combine
-     * 4.emptyStockMonthDataFlux: 先用codeYearMonthFlux去local撈資料 若無則透過switchIfEmpty與filter做出無資料的Flux
-     * 5.最終使用emptyStockMonthDataFlux開始爬資料
+     * 爬蟲主程式 (每八小時執行一次)
+     * checkImportFile 匯入上市股票資料
+     * checkImportTPExFile 匯入上櫃股票資料
+     * takeListedStock 取得上市股票資料
+     * takeTPExList 取得上櫃股票資料
      */
-    @Scheduled(cron = "0 0 2 * * *")
-    @PostConstruct
+    @Scheduled(fixedDelay = 1000 * 60 * 60 * 8)
     public void crawlStockData() throws Exception {
         checkImportFile();
         checkImportTPExFile();
@@ -71,6 +68,11 @@ public class Schedule {
 
     /**
      * 上市股票爬蟲
+     * 1.yearMonths: 抓取資料日期區間
+     * 2.companyStatusFlux: 全上市公司列表，每日更新一次
+     * 3.codeYearMonthFlux: 股市代號與日期combine
+     * 4.emptyStockMonthDataFlux: 先用codeYearMonthFlux去local撈資料 若無則透過switchIfEmpty與filter做出無資料的Flux
+     * 5.最終使用emptyStockMonthDataFlux開始爬資料
      */
     private void takeListedStock() {
         Flux<CompanyStatus> companyStatusFlux = checkCompaniesData();
@@ -158,8 +160,6 @@ public class Schedule {
 
     /**
      * 上櫃股價資料匯入
-     *
-     * @throws IOException
      */
     private void checkImportTPExFile() throws IOException {
         String file = "stocksTPEX";
@@ -187,8 +187,6 @@ public class Schedule {
 
     /**
      * 上市股價資料匯入
-     *
-     * @throws IOException
      */
     private void checkImportFile() throws IOException {
         String file = "stocks";
