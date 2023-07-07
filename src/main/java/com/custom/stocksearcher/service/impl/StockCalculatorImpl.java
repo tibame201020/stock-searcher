@@ -232,21 +232,15 @@ public class StockCalculatorImpl implements StockCalculator {
     private StockMAResult calcStockMa(List<StockData> window, int period) {
         BigDecimal ma = calculateMA(window, period);
         StockData lastData = window.get(window.size() - 1);
-
         StockMAResult stockMAResult = new StockMAResult();
 
-        if (5 == period) {
-            stockMAResult.setMa5(ma);
+        switch (period) {
+            case 5 -> stockMAResult.setMa5(ma);
+            case 10 -> stockMAResult.setMa10(ma);
+            case 20-> stockMAResult.setMa20(ma);
+            case 60-> stockMAResult.setMa60(ma);
         }
-        if (10 == period) {
-            stockMAResult.setMa10(ma);
-        }
-        if (20 == period) {
-            stockMAResult.setMa20(ma);
-        }
-        if (60 == period) {
-            stockMAResult.setMa60(ma);
-        }
+
         stockMAResult.setDate(lastData.getDate());
         stockMAResult.setPrice(lastData.getClosingPrice());
 
