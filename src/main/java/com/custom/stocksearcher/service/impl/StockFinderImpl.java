@@ -129,8 +129,8 @@ public class StockFinderImpl implements StockFinder {
                 .flatMap(companyStatus -> tpExStockRepo
                         .findByTpExStockId_CodeAndDateBetween(
                                 companyStatus.getCode(),
-                                LocalDate.parse(codeParam.getBeginDate()),
-                                LocalDate.parse(codeParam.getEndDate())
+                                LocalDate.parse(codeParam.getBeginDate()).minusDays(1),
+                                LocalDate.parse(codeParam.getEndDate()).plusDays(1)
                         )).
                 flatMap(tpExStock -> Flux.just(tpExStock.getStockData()));
     }
