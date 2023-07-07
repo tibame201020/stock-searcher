@@ -1,9 +1,6 @@
 package com.custom.stocksearcher.service.impl;
 
-import com.custom.stocksearcher.models.CodeParam;
-import com.custom.stocksearcher.models.StockBumpy;
-import com.custom.stocksearcher.models.StockData;
-import com.custom.stocksearcher.models.StockMAResult;
+import com.custom.stocksearcher.models.*;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.service.StockCalculator;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -103,6 +100,9 @@ public class StockCalculatorImpl implements StockCalculator {
                                         }
                                         if (null != stockMAResult.getMa60()) {
                                             mergedResult.setMa60(stockMAResult.getMa60());
+                                        }
+                                        if (null != stockMAResult.getPrice()) {
+                                            mergedResult.setPrice(stockMAResult.getPrice());
                                         }
                                     }
                             );
@@ -248,6 +248,7 @@ public class StockCalculatorImpl implements StockCalculator {
             stockMAResult.setMa60(ma);
         }
         stockMAResult.setDate(lastData.getDate());
+        stockMAResult.setPrice(lastData.getClosingPrice());
 
         return stockMAResult;
     }

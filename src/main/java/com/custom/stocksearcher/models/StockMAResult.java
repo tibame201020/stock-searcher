@@ -23,4 +23,5 @@ public class StockMAResult implements Serializable {
     private BigDecimal ma10;
     private BigDecimal ma20;
     private BigDecimal ma60;
+    private BigDecimal price;
 }

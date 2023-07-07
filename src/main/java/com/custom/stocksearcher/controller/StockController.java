@@ -113,10 +113,6 @@ public class StockController {
         BigDecimal bumpyHighLimit = codeParam.getBumpyHighLimit();
         BigDecimal bumpyLowLimit = codeParam.getBumpyLowLimit();
 
-        if (null != codeParam.getBeforeEndDateDays() && codeParam.getBeforeEndDateDays() > 0) {
-            LocalDate beginDate = LocalDate.parse(codeParam.getEndDate()).minusDays(codeParam.getBeforeEndDateDays());
-            codeParam.setBeginDate(beginDate.toString());
-        }
         Flux<CompanyStatus> companyStatusFlux;
         if ("all".equalsIgnoreCase(codeParam.getCode())) {
             companyStatusFlux = companyStatusRepo.findAll();
