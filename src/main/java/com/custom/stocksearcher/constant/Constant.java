@@ -33,12 +33,4 @@ public class Constant {
      * 定義schedule爬蟲起始日期
      */
     public static final String STOCK_CRAWLER_BEGIN = "2022-06-01";
-    /**
-     * 定義schedule爬蟲結束日期
-     */
-    public static final String STOCK_CRAWLER_END = "2023-06-30";
-    /**
-     * 開發期間預設user
-     */
-    public static final String DEV_USER = "dev-user";
 }

@@ -16,6 +16,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -80,26 +81,59 @@ public class StockController {
             stockDataFlux = stockDataFlux.takeLast(klineCnt);
         }
 
-        Flux<StockData> finalStockDataFlux = Flux.from(stockDataFlux);
+        Flux<StockData> finalStockDataFlux = Flux.from(stockDataFlux).sort(Comparator.comparing(StockData::getDate));
+
+        finalStockDataFlux = finalStockDataFlux
+                .buffer()
+                .flatMap(stockDataList -> {
+                    StockData lastStockData = stockDataList.get(stockDataList.size() - 1);
+                    BigDecimal openPrice = lastStockData.getOpeningPrice();
+                    BigDecimal closingPrice = lastStockData.getClosingPrice();
+                    BigDecimal lowestPrice = lastStockData.getLowestPrice();
+                    BigDecimal lastOpenCalc = openPrice.subtract(lowestPrice).divide(lowestPrice, 4, RoundingMode.FLOOR).multiply(BigDecimal.valueOf(100));
+                    BigDecimal lastCloseCalc = closingPrice.subtract(lowestPrice).divide(lowestPrice, 4, RoundingMode.FLOOR).multiply(BigDecimal.valueOf(100));
+
+                    if ((lastOpenCalc.compareTo(codeParam.getLastOpenCalcLimit()) >= 0) && (lastCloseCalc.compareTo(codeParam.getLastCloseCalcLimit()) >= 0)) {
+                        return Flux.fromIterable(stockDataList);
+                    } else {
+                        return Flux.empty();
+                    }
+                });
 
         return stockCalculator.getRangeOfHighAndLowPoint(finalStockDataFlux, codeParam)
-                .filter(stockBumpy ->
-                        stockBumpy.getLowestTradeVolume().compareTo(codeParam.getTradeVolumeLimit()) >= 0
-                ).flatMap(stockBumpy ->
-                        finalStockDataFlux.sort(Comparator.comparing(StockData::getDate)).elementAt(0).flatMap(
-                                stockData -> {
-                                    stockBumpy.setBeginDate(stockData.getDate().toString());
-                                    return Mono.just(stockBumpy);
-                                }
-                        )
-                ).flatMap(stockBumpy ->
-                        finalStockDataFlux.sort(Comparator.comparing(StockData::getDate)).last().flatMap(
-                                stockData -> {
-                                    stockBumpy.setEndDate(stockData.getDate().toString());
-                                    return Mono.just(stockBumpy);
-                                }
-                        )
-                );
+                .filter(stockBumpy -> stockBumpy.getLowestTradeVolume().compareTo(codeParam.getTradeVolumeLimit()) >= 0)
+                .flatMap(stockBumpy -> {
+                    CodeParam stockMAParam = new CodeParam();
+                    stockMAParam.setCode(codeParam.getCode());
+                    stockMAParam.setBeginDate(stockBumpy.getEndDate());
+                    stockMAParam.setEndDate(stockBumpy.getEndDate());
+                    return getStockMa(stockMAParam).last().flatMap(stockMAResult -> {
+                        BigDecimal price = stockMAResult.getPrice();
+                        BigDecimal ma5 = stockMAResult.getMa5();
+                        BigDecimal ma10 = stockMAResult.getMa10();
+                        BigDecimal ma20 = stockMAResult.getMa20();
+                        BigDecimal ma60 = stockMAResult.getMa60();
+                        BigDecimal ma = BigDecimal.valueOf(-1);
+
+                        switch (codeParam.getClosingPriceCompareTarget()) {
+                            case "MA5" ->
+                                    ma = ma5 != null ? ma5 : BigDecimal.ZERO;
+                            case "MA10" ->
+                                    ma = ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
+                            case "MA20" ->
+                                    ma = ma20 != null ? ma20 : ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
+                            case "MA60" ->
+                                    ma = ma60 != null ? ma60 : ma20 != null ? ma20 : ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
+                        }
+
+                        if (price.compareTo(ma) >= 0) {
+                            stockBumpy.setLastStockMA(stockMAResult);
+                            return Mono.just(stockBumpy);
+                        } else {
+                            return Mono.empty();
+                        }
+                    });
+                });
     }
 
     /**
@@ -116,6 +150,10 @@ public class StockController {
         Flux<CompanyStatus> companyStatusFlux;
         if ("all".equalsIgnoreCase(codeParam.getCode())) {
             companyStatusFlux = companyStatusRepo.findAll();
+        } else if ("listed".equalsIgnoreCase(codeParam.getCode())) {
+            companyStatusFlux = companyStatusRepo.findAll().filter(companyStatus -> !companyStatus.isTPE());
+        } else if ("tpex".equalsIgnoreCase(codeParam.getCode())) {
+            companyStatusFlux = companyStatusRepo.findAll().filter(CompanyStatus::isTPE);
         } else {
             companyStatusFlux = codeListRepo
                     .findById(codeParam.getCode())
@@ -131,6 +169,10 @@ public class StockController {
                     codeParam1.setEndDate(codeParam.getEndDate());
                     codeParam1.setTradeVolumeLimit(codeParam.getTradeVolumeLimit());
                     codeParam1.setKlineCnt(codeParam.getKlineCnt());
+                    codeParam1.setLastOpenCalcLimit(codeParam.getLastOpenCalcLimit());
+                    codeParam1.setLastCloseCalcLimit(codeParam.getLastCloseCalcLimit());
+                    codeParam1.setClosingPriceCompareTarget(codeParam.getClosingPriceCompareTarget());
+
                     return Mono.just(codeParam1);
                 }
         );

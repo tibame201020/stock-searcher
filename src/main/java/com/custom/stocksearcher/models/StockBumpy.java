@@ -32,4 +32,6 @@ public class StockBumpy implements Serializable {
     private BigDecimal lowestTradeVolume;
 
     private BigDecimal calcResult;
+
+    private StockMAResult lastStockMA;
 }

@@ -36,4 +36,9 @@ public class CodeParam implements Serializable {
     private Integer beforeEndDateDays;
 
     private Integer klineCnt;
+
+    private BigDecimal lastOpenCalcLimit;
+    private BigDecimal lastCloseCalcLimit;
+
+    private String closingPriceCompareTarget;
 }

@@ -1,6 +1,9 @@
 package com.custom.stocksearcher.service.impl;
 
-import com.custom.stocksearcher.models.*;
+import com.custom.stocksearcher.models.CodeParam;
+import com.custom.stocksearcher.models.StockBumpy;
+import com.custom.stocksearcher.models.StockData;
+import com.custom.stocksearcher.models.StockMAResult;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.service.StockCalculator;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +27,8 @@ public class StockCalculatorImpl implements StockCalculator {
 
     @Override
     public Mono<StockBumpy> getRangeOfHighAndLowPoint(Flux<StockData> stockDataFlux, CodeParam codeParam) {
+        Mono<StockData> firstStockData = stockDataFlux.elementAt(0);
+        Mono<StockData> lastStockData = stockDataFlux.last();
 
         return getHighestStockData(stockDataFlux)
                 .zipWith(getLowestStockData(stockDataFlux))
@@ -71,6 +76,20 @@ public class StockCalculatorImpl implements StockCalculator {
                                     stockBumpy.setName(companyStatus.getName());
                                     return Mono.just(stockBumpy);
                                 })
+                ).flatMap(stockBumpy ->
+                        firstStockData.flatMap(
+                                stockData -> {
+                                    stockBumpy.setBeginDate(stockData.getDate().toString());
+                                    return Mono.just(stockBumpy);
+                                }
+                        )
+                ).flatMap(stockBumpy ->
+                        lastStockData.flatMap(
+                                stockData -> {
+                                    stockBumpy.setEndDate(stockData.getDate().toString());
+                                    return Mono.just(stockBumpy);
+                                }
+                        )
                 );
     }
 
@@ -237,8 +256,8 @@ public class StockCalculatorImpl implements StockCalculator {
         switch (period) {
             case 5 -> stockMAResult.setMa5(ma);
             case 10 -> stockMAResult.setMa10(ma);
-            case 20-> stockMAResult.setMa20(ma);
-            case 60-> stockMAResult.setMa60(ma);
+            case 20 -> stockMAResult.setMa20(ma);
+            case 60 -> stockMAResult.setMa60(ma);
         }
 
         stockMAResult.setDate(lastData.getDate());

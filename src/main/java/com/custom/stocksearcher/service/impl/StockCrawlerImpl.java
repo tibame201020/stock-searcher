@@ -189,12 +189,8 @@ public class StockCrawlerImpl implements StockCrawler {
     private BigDecimal transDecimal(String str) {
         try {
             str = str.replaceAll(",", "").replaceAll("X", "").trim();
-            if (str.contains("--")) {
-                return null;
-            }
             return new BigDecimal(str);
         } catch (Exception e) {
-            e.printStackTrace();
             return null;
         }
     }

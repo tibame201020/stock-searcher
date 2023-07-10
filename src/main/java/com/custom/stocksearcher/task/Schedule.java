@@ -52,13 +52,13 @@ public class Schedule {
     private TPExStockRepo tpExStockRepo;
 
     /**
-     * 爬蟲主程式 (每八小時執行一次)
+     * 爬蟲主程式 (每兩小時執行一次)
      * checkImportFile 匯入上市股票資料
      * checkImportTPExFile 匯入上櫃股票資料
      * takeListedStock 取得上市股票資料
      * takeTPExList 取得上櫃股票資料
      */
-    @Scheduled(fixedDelay = 1000 * 60 * 60 * 8)
+    @Scheduled(fixedDelay = 1000 * 60 * 60 * 2)
     public void crawlStockData() throws Exception {
         checkImportFile();
         checkImportTPExFile();
@@ -135,7 +135,7 @@ public class Schedule {
                 .switchIfEmpty(defaultTpExStockMono);
 
         Flux.from(tpExStockMono)
-                .flatMap(tpExStock -> Mono.just(tpExStock.getTpExStockId().getDate().minusDays(2)))
+                .flatMap(tpExStock -> Mono.just(tpExStock.getTpExStockId().getDate().minusDays(1)))
                 .flatMap(beginDate -> Flux.fromIterable(dateProvider.calculateMonthList(beginDate, LocalDate.now())))
                 .flatMap(yearMonth ->
                         Flux.range(1, yearMonth.lengthOfMonth()).map(yearMonth::atDay))
