@@ -91,29 +91,10 @@ public class StockFinderImpl implements StockFinder {
         return companyStatusRepo
                 .findAllById(Collections.singleton(codeParam.getCode()))
                 .filter(companyStatus -> !companyStatus.isTPE())
-                .flatMap(companyStatus -> Flux.fromIterable(monthList).flatMap(month -> processMonth(companyStatus.getCode(), month)))
+                .flatMap(companyStatus -> Flux.fromIterable(monthList).flatMap(month -> stockMonthDataRepo.findByCodeAndYearMonth(companyStatus.getCode(), month.toString())))
                 .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()));
     }
 
-    /**
-     * 根據month查詢elasticsearch 若無資料 則從crawler要資料
-     *
-     * @param stockCode 股票代號
-     * @param month     年月份
-     * @return 條件當月股價資訊集合
-     */
-    private Flux<StockMonthData> processMonth(String stockCode, YearMonth month) {
-        YearMonth currentMonth = YearMonth.now();
-        Flux<StockMonthData> existingData;
-        if (month.equals(currentMonth)) {
-            existingData = stockMonthDataRepo
-                    .findByCodeAndYearMonthAndIsHistoryAndUpdateDate(stockCode, month.toString(), false, LocalDate.now());
-        } else {
-            existingData = stockMonthDataRepo.findByCodeAndYearMonthAndIsHistory(stockCode, month.toString(), true);
-        }
-
-        return existingData;
-    }
 
     /**
      * 上櫃股票查詢

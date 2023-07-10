@@ -13,4 +13,6 @@ public interface StockMonthDataRepo extends ReactiveElasticsearchRepository<Stoc
     Flux<StockMonthData> findByCodeAndYearMonthAndIsHistory(String code, String yearMonth, boolean isHistory);
 
     Flux<StockMonthData> findByCodeAndYearMonthAndIsHistoryAndUpdateDate(String code, String yearMonth, boolean isHistory, LocalDate updateDate);
+
+    Flux<StockMonthData> findByCodeAndYearMonth(String code, String yearMonth);
 }
