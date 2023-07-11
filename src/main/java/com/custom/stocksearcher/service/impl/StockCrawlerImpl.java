@@ -46,6 +46,7 @@ public class StockCrawlerImpl implements StockCrawler {
         try {
             stockBasicInfo = webProvider.getUrlToObject(url, StockBasicInfo.class);
         } catch (Exception e) {
+            e.printStackTrace();
             return Mono.empty();
         }
 

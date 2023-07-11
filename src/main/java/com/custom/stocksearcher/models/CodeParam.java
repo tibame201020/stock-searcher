@@ -4,6 +4,7 @@ import lombok.*;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 查詢參數bean
@@ -41,4 +42,6 @@ public class CodeParam implements Serializable {
     private BigDecimal lastCloseCalcLimit;
 
     private String closingPriceCompareTarget;
+
+    private List<String> candlestickTypeList;
 }

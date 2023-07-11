@@ -4,6 +4,7 @@ import com.custom.stocksearcher.models.*;
 import com.custom.stocksearcher.repo.CodeListRepo;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.service.StockCalculator;
+import com.custom.stocksearcher.service.StockCandlestick;
 import com.custom.stocksearcher.service.StockFinder;
 import com.custom.stocksearcher.service.UserStorage;
 import org.apache.commons.logging.Log;
@@ -19,7 +20,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 處理stock相關
@@ -34,6 +37,8 @@ public class StockController {
     private StockCalculator stockCalculator;
     @Autowired
     private UserStorage userStorage;
+    @Autowired
+    private StockCandlestick stockCandlestick;
     @Autowired
     private CompanyStatusRepo companyStatusRepo;
     @Autowired
@@ -87,6 +92,14 @@ public class StockController {
                 .buffer()
                 .flatMap(stockDataList -> {
                     StockData lastStockData = stockDataList.get(stockDataList.size() - 1);
+                    List<String> candlestickTypeList = codeParam.getCandlestickTypeList();
+                    if (null != candlestickTypeList && !candlestickTypeList.isEmpty()) {
+                        CandlestickType candlestickType = stockCandlestick.detectCandlestickType(lastStockData);
+                        if (!candlestickTypeList.contains(candlestickType.getName())) {
+                            return Flux.empty();
+                        }
+                    }
+
                     BigDecimal openPrice = lastStockData.getOpeningPrice();
                     BigDecimal closingPrice = lastStockData.getClosingPrice();
                     BigDecimal lowestPrice = lastStockData.getLowestPrice();
@@ -103,6 +116,10 @@ public class StockController {
         return stockCalculator.getRangeOfHighAndLowPoint(finalStockDataFlux, codeParam)
                 .filter(stockBumpy -> stockBumpy.getLowestTradeVolume().compareTo(codeParam.getTradeVolumeLimit()) >= 0)
                 .flatMap(stockBumpy -> {
+                    if ("none".equalsIgnoreCase(codeParam.getClosingPriceCompareTarget())) {
+                        return Mono.just(stockBumpy);
+                    }
+
                     CodeParam stockMAParam = new CodeParam();
                     stockMAParam.setCode(codeParam.getCode());
                     stockMAParam.setBeginDate(stockBumpy.getEndDate());
@@ -172,6 +189,7 @@ public class StockController {
                     codeParam1.setLastOpenCalcLimit(codeParam.getLastOpenCalcLimit());
                     codeParam1.setLastCloseCalcLimit(codeParam.getLastCloseCalcLimit());
                     codeParam1.setClosingPriceCompareTarget(codeParam.getClosingPriceCompareTarget());
+                    codeParam1.setCandlestickTypeList(codeParam.getCandlestickTypeList());
 
                     return Mono.just(codeParam1);
                 }
@@ -260,6 +278,18 @@ public class StockController {
     @RequestMapping("getIntersectionFromCodeList")
     public Flux<CompanyStatus> getIntersectionFromCodeList(@RequestBody List<String> codeListIds) {
         return userStorage.getIntersectionFromCodeList(codeListIds);
+    }
+
+    @RequestMapping("getAllCandlestickType")
+    public Flux<Map<String, String>> getAllCandlestickType() {
+        return Flux
+                .fromArray(CandlestickType.values())
+                .map(candlestickType -> {
+                    Map<String, String> candlestickTypeMap = new HashMap<>();
+                    candlestickTypeMap.put("key", candlestickType.toString());
+                    candlestickTypeMap.put("name", candlestickType.getName());
+                    return candlestickTypeMap;
+                });
     }
 
 }

@@ -33,4 +33,16 @@ public class Constant {
      * 定義schedule爬蟲起始日期
      */
     public static final String STOCK_CRAWLER_BEGIN = "2022-06-01";
+
+    public static final String CandlestickType_BLACK = "BLACK";
+    public static final String CandlestickType_RED = "RED";
+    public static final String CandlestickType_GREEN = "GREEN";
+
+    public static final String DASH_LINE = "DashLine";
+    public static final String T_LINE_UP = "TLineUP";
+    public static final String T_LINE_DOWN = "TLineDown";
+    public static final String CROSS = "Cross";
+    public static final String CROSS_UP = "CrossUp";
+    public static final String CROSS_DOWN = "CrossDown";
+
 }
