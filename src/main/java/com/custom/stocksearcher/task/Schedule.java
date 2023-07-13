@@ -78,7 +78,7 @@ public class Schedule {
                 .filter(companyStatus -> !companyStatus.isTPE())
                 .map(CompanyStatus::getCode)
                 .flatMap(code ->
-                        listedStockRepo.findFirstByListedStockId_CodeAndUpdateDateOrderByDateDesc(code, LocalDate.now())
+                        listedStockRepo.findFirstByListedStockId_CodeOrderByDateDesc(code)
                                 .switchIfEmpty(Mono.defer(() -> {
                                     ListedStockId listedStockId = new ListedStockId();
                                     listedStockId.setCode(code);
