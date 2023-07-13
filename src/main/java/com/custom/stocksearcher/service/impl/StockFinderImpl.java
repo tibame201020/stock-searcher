@@ -3,28 +3,25 @@ package com.custom.stocksearcher.service.impl;
 import com.custom.stocksearcher.models.CodeParam;
 import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.models.StockData;
-import com.custom.stocksearcher.models.StockMonthData;
+import com.custom.stocksearcher.models.listed.ListedStock;
+import com.custom.stocksearcher.models.tpex.TPExStock;
 import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
-import com.custom.stocksearcher.repo.StockMonthDataRepo;
+import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockFinder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
 
 @Service
 public class StockFinderImpl implements StockFinder {
 
     @Autowired
-    private StockMonthDataRepo stockMonthDataRepo;
+    private ListedStockRepo listedStockRepo;
     @Autowired
     private CompanyStatusRepo companyStatusRepo;
     @Autowired
@@ -46,13 +43,7 @@ public class StockFinderImpl implements StockFinder {
                         return listedStockDataFlux;
                     }
                 })
-                .filter(stockData -> stockData.getDate().isBefore(LocalDate.now()))
-                .filter(stockData ->
-                        stockData.getDate().isAfter(LocalDate.parse(codeParam.getBeginDate()).minusDays(1))
-                                && stockData.getDate().isBefore(LocalDate.parse(codeParam.getEndDate()).plusDays(1))
-                )
-                .filter(this::verifyStockData)
-                .sort(Comparator.comparing(StockData::getDate));
+                .filter(this::verifyStockData);
     }
 
     @Override
@@ -69,10 +60,6 @@ public class StockFinderImpl implements StockFinder {
                         return true;
                     }
                 })
-                .flatMap(companyStatus -> {
-                    companyStatus.setUpdateDate(null);
-                    return Mono.just(companyStatus);
-                })
                 .filter(companyStatus -> companyStatus.toString().contains(keyword));
     }
 
@@ -84,15 +71,16 @@ public class StockFinderImpl implements StockFinder {
      * @return
      */
     private Flux<StockData> findListedStock(CodeParam codeParam) {
-        LocalDate beginDate = LocalDate.parse(codeParam.getBeginDate()).withDayOfMonth(1);
-        LocalDate endDate = LocalDate.parse(codeParam.getEndDate()).withDayOfMonth(1);
-
-        List<YearMonth> monthList = dateProvider.calculateMonthList(beginDate, endDate);
         return companyStatusRepo
                 .findAllById(Collections.singleton(codeParam.getCode()))
                 .filter(companyStatus -> !companyStatus.isTPE())
-                .flatMap(companyStatus -> Flux.fromIterable(monthList).flatMap(month -> stockMonthDataRepo.findByCodeAndYearMonth(companyStatus.getCode(), month.toString())))
-                .flatMap(stockMonthData -> Flux.fromIterable(stockMonthData.getStockDataList()));
+                .flatMap(companyStatus -> listedStockRepo
+                        .findByListedStockId_CodeAndDateBetweenOrderByDate(
+                                companyStatus.getCode(),
+                                LocalDate.parse(codeParam.getBeginDate()).minusDays(1),
+                                LocalDate.parse(codeParam.getEndDate()).plusDays(1)
+                        ))
+                .map(ListedStock::getStockData);
     }
 
 
@@ -108,12 +96,11 @@ public class StockFinderImpl implements StockFinder {
                 .filter(CompanyStatus::isTPE)
                 .filter(companyStatus -> companyStatus.getCode().length() != 6)
                 .flatMap(companyStatus -> tpExStockRepo
-                        .findByTpExStockId_CodeAndDateBetween(
+                        .findByTpExStockId_CodeAndDateBetweenOrderByDate(
                                 companyStatus.getCode(),
                                 LocalDate.parse(codeParam.getBeginDate()).minusDays(1),
                                 LocalDate.parse(codeParam.getEndDate()).plusDays(1)
-                        )).
-                flatMap(tpExStock -> Flux.just(tpExStock.getStockData()));
+                        )).map(TPExStock::getStockData);
     }
 
     /**

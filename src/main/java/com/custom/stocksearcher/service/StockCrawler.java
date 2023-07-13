@@ -1,12 +1,11 @@
 package com.custom.stocksearcher.service;
 
 import com.custom.stocksearcher.models.CompanyStatus;
-import com.custom.stocksearcher.models.StockMonthData;
+import com.custom.stocksearcher.models.listed.ListedStock;
 import com.custom.stocksearcher.models.tpex.TPExStock;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 /**
  * 股價爬蟲Service
@@ -20,9 +19,9 @@ public interface StockCrawler {
      *
      * @param stockCode 股票代碼
      * @param dateStr   日期
-     * @return Mono<StockMonthData>
+     * @return Flux<ListedStock>
      */
-    Mono<StockMonthData> getStockMonthDataFromTWSEApi(String stockCode, String dateStr);
+    Flux<ListedStock> getListedStockDataFromTWSEApi(String stockCode, String dateStr);
 
     /**
      * 從twse open api 取得公司名稱與股票代號

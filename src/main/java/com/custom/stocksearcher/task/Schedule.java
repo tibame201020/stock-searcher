@@ -3,12 +3,13 @@ package com.custom.stocksearcher.task;
 import com.custom.stocksearcher.config.LocalDateTypeAdapter;
 import com.custom.stocksearcher.models.CodeWithYearMonth;
 import com.custom.stocksearcher.models.CompanyStatus;
-import com.custom.stocksearcher.models.StockMonthData;
+import com.custom.stocksearcher.models.listed.ListedStock;
+import com.custom.stocksearcher.models.listed.ListedStockId;
 import com.custom.stocksearcher.models.tpex.TPExStock;
 import com.custom.stocksearcher.models.tpex.TPExStockId;
 import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
-import com.custom.stocksearcher.repo.StockMonthDataRepo;
+import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
 import com.google.gson.GsonBuilder;
@@ -29,6 +30,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 
 import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_BEGIN;
@@ -47,9 +49,9 @@ public class Schedule {
     @Autowired
     private CompanyStatusRepo companyStatusRepo;
     @Autowired
-    private StockMonthDataRepo stockMonthDataRepo;
-    @Autowired
     private TPExStockRepo tpExStockRepo;
+    @Autowired
+    private ListedStockRepo listedStockRepo;
 
     /**
      * 爬蟲主程式 (每兩小時執行一次)
@@ -60,7 +62,7 @@ public class Schedule {
      */
     @Scheduled(fixedDelay = 1000 * 60 * 60 * 2)
     public void crawlStockData() throws Exception {
-        checkImportFile();
+        checkImportListedFile();
         checkImportTPExFile();
         takeListedStock();
         takeTPExList();
@@ -68,55 +70,46 @@ public class Schedule {
 
     /**
      * 上市股票爬蟲
-     * 1.yearMonths: 抓取資料日期區間
-     * 2.companyStatusFlux: 全上市公司列表，每日更新一次
-     * 3.codeYearMonthFlux: 股市代號與日期combine
-     * 4.emptyStockMonthDataFlux: 先用codeYearMonthFlux去local撈資料 若無則透過switchIfEmpty與filter做出無資料的Flux
-     * 5.最終使用emptyStockMonthDataFlux開始爬資料
      */
     private void takeListedStock() {
         Flux<CompanyStatus> companyStatusFlux = checkCompaniesData();
-        List<YearMonth> yearMonths = dateProvider.calculateMonthList(
-                LocalDate.parse(STOCK_CRAWLER_BEGIN),
-                LocalDate.now()
-        );
 
-        Flux<CodeWithYearMonth> codeYearMonthFlux = companyStatusFlux.flatMap(companyStatus ->
-                Flux.fromIterable(yearMonths).map(yearMonth -> new CodeWithYearMonth(companyStatus.getCode(), yearMonth))
-        );
-
-        Flux<StockMonthData> emptyStockMonthDataFlux = codeYearMonthFlux
-                .flatMap(codeWithYearMonth -> {
-                    String code = codeWithYearMonth.getCode();
-                    YearMonth yearMonth = codeWithYearMonth.getYearMonth();
-                    Flux<StockMonthData> stockMonthDataFlux = getStockMonthDataFluxFromDB(code, yearMonth);
-
-                    StockMonthData stockMonthData = new StockMonthData();
-                    stockMonthData.setCode(code);
-                    stockMonthData.setYearMonth(yearMonth.toString());
-
-                    return Flux.from(stockMonthDataFlux).switchIfEmpty(Flux.defer(() -> Flux.just(stockMonthData)));
+        companyStatusFlux
+                .filter(companyStatus -> !companyStatus.isTPE())
+                .map(CompanyStatus::getCode)
+                .flatMap(code ->
+                        listedStockRepo.findFirstByListedStockId_CodeAndUpdateDateOrderByDateDesc(code, LocalDate.now())
+                                .switchIfEmpty(Mono.defer(() -> {
+                                    ListedStockId listedStockId = new ListedStockId();
+                                    listedStockId.setCode(code);
+                                    ListedStock listedStock = new ListedStock();
+                                    listedStock.setListedStockId(listedStockId);
+                                    listedStock.setDate(LocalDate.parse(STOCK_CRAWLER_BEGIN));
+                                    return Mono.just(listedStock);
+                                })))
+                .sort(Comparator.comparing(listedStock -> listedStock.getListedStockId().getCode()))
+                .filter(listedStock -> listedStock.getDate().isBefore(LocalDate.now()))
+                .flatMap(listedStock -> {
+                    List<YearMonth> yearMonths = dateProvider.calculateMonthList(listedStock.getDate(), LocalDate.now());
+                    return Flux.fromIterable(yearMonths).map(yearMonth -> {
+                        CodeWithYearMonth codeWithYearMonth = new CodeWithYearMonth();
+                        codeWithYearMonth.setCode(listedStock.getListedStockId().getCode());
+                        codeWithYearMonth.setYearMonth(yearMonth);
+                        return codeWithYearMonth;
+                    });
                 })
-                .filter(stockMonthData -> null == stockMonthData.getStockMonthDataId());
-
-        log.info("start crawl stockMonthData at " + dateProvider.getSystemDateTimeFormat());
-        emptyStockMonthDataFlux
                 .delayElements(Duration.ofSeconds(6))
-                .flatMap(stockMonthData ->
-                        getStockMonthDataFluxFromOpenApi(stockMonthData.getCode(), YearMonth.parse(stockMonthData.getYearMonth()))
-                )
+                .flatMap(codeWithYearMonth -> getStockMonthDataFluxFromOpenApi(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()))
                 .subscribe(
-                        result -> {
-                        },
-                        err -> {
-                            err.printStackTrace();
-                            log.error(String.format("get stockMonthData error: %s", err));
-                        },
+                        result -> log.info("取得上市股票資料 : " + result),
+                        err -> log.error(String.format("取得上市股票資料錯誤: %s", err)),
                         () -> {
-                            log.info("crawl stockMonthData finish at " + dateProvider.getSystemDateTimeFormat());
-//                            writeToFile();
+                            log.info("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat());
+//                            writeListedToFile();
                         }
                 );
+
+
     }
 
     /**
@@ -139,20 +132,14 @@ public class Schedule {
                 .flatMap(beginDate -> Flux.fromIterable(dateProvider.calculateMonthList(beginDate, LocalDate.now())))
                 .flatMap(yearMonth ->
                         Flux.range(1, yearMonth.lengthOfMonth()).map(yearMonth::atDay))
-                .filter(date -> date.isBefore(LocalDate.now()))
                 .flatMap(date -> Mono.just(date.toString().replaceAll("-", "/")))
                 .flatMap(dateStr -> Mono.just(String.format(TPEx_LIST_URL, dateStr)))
                 .flatMap(url -> stockCrawler.getTPExStockFromTPEx(url))
                 .subscribe(
-                        result -> {
-                            log.info("get TPExStock : " + result);
-                        },
-                        err -> {
-                            err.printStackTrace();
-                            log.error(String.format("get TPExStock error: %s", err));
-                        },
+                        result -> log.info("取得上櫃股票資料 : " + result),
+                        err -> log.error(String.format("取得上櫃股票資料錯誤: %s", err)),
                         () -> {
-                            log.info("crawl TPExStock finish at " + dateProvider.getSystemDateTimeFormat());
+                            log.info("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat());
 //                            writeTPEXToFile();
                         }
                 );
@@ -188,8 +175,8 @@ public class Schedule {
     /**
      * 上市股價資料匯入
      */
-    private void checkImportFile() throws IOException {
-        String file = "stocks";
+    private void checkImportListedFile() throws IOException {
+        String file = "stocksListed";
         Path path = Paths.get(file);
         boolean exists = Files.exists(path);
         if (!exists) {
@@ -202,13 +189,13 @@ public class Schedule {
         Flux.fromArray(strArray)
                 .flatMap(
                         str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
-                                .create().fromJson(str, StockMonthData.class)))
+                                .create().fromJson(str, ListedStock.class)))
                 .buffer()
-                .flatMap(stockMonthDataList -> stockMonthDataRepo.saveAll(stockMonthDataList))
+                .flatMap(listedStockList -> listedStockRepo.saveAll(listedStockList))
                 .subscribe(
-                        stockMonthData -> log.info("save to elasticsearch : " + stockMonthData),
+                        listedStock -> log.info("save to elasticsearch : " + listedStock),
                         err -> log.error("error : " + err.getMessage()),
-                        () -> log.info("import stockMonthData finish at " + dateProvider.getSystemDateTimeFormat())
+                        () -> log.info("import listedStock finish at " + dateProvider.getSystemDateTimeFormat())
                 );
     }
 
@@ -230,14 +217,14 @@ public class Schedule {
     /**
      * 上市股價資料匯出
      */
-    private void writeToFile() {
-        String file = "stocks";
-        Flux<StockMonthData> stockMonthDataFlux = stockMonthDataRepo.findAll();
+    private void writeListedToFile() {
+        String file = "stocksListed";
+        Flux<ListedStock> stockMonthDataFlux = listedStockRepo.findAll();
         Flux<String> dataFlux = stockMonthDataFlux
-                .flatMap(stockMonthData -> Flux.just(
+                .flatMap(listedStock -> Flux.just(
                         new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
                                 .create()
-                                .toJson(stockMonthData)));
+                                .toJson(listedStock)));
         Path path = Paths.get(file);
         writeFile(dataFlux, path).subscribe();
     }
@@ -288,24 +275,6 @@ public class Schedule {
         return companyStatusFlux.switchIfEmpty(fromOpenApiFlux).filter(companyStatus -> !companyStatus.isTPE());
     }
 
-    /**
-     * 從database撈取StockMonthData
-     *
-     * @param code      股票代號
-     * @param yearMonth 月份
-     * @return Flux<StockMonthData>
-     */
-    private Flux<StockMonthData> getStockMonthDataFluxFromDB(String code, YearMonth yearMonth) {
-        YearMonth currentMonth = YearMonth.now();
-        Flux<StockMonthData> stockMonthDataFlux;
-        if (yearMonth.equals(currentMonth)) {
-            stockMonthDataFlux = stockMonthDataRepo.findByCodeAndYearMonthAndIsHistoryAndUpdateDate(code, yearMonth.toString(), false, LocalDate.now());
-        } else {
-            stockMonthDataFlux = stockMonthDataRepo.findByCodeAndYearMonthAndIsHistory(code, yearMonth.toString(), true);
-        }
-
-        return stockMonthDataFlux;
-    }
 
     /**
      * 從twse取得StockMonthData
@@ -314,8 +283,8 @@ public class Schedule {
      * @param yearMonth 月份
      * @return Flux<StockMonthData>
      */
-    private Flux<StockMonthData> getStockMonthDataFluxFromOpenApi(String code, YearMonth yearMonth) {
-        return Flux.from(stockCrawler.getStockMonthDataFromTWSEApi(code, yearMonth.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"))));
+    private Flux<ListedStock> getStockMonthDataFluxFromOpenApi(String code, YearMonth yearMonth) {
+        return stockCrawler.getListedStockDataFromTWSEApi(code, yearMonth.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
     }
 
 

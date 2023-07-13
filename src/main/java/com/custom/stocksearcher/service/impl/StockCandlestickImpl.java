@@ -9,7 +9,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 import static com.custom.stocksearcher.constant.Constant.*;
-import static com.custom.stocksearcher.constant.Constant.CandlestickType_GREEN;
 
 @Service
 public class StockCandlestickImpl implements StockCandlestick {
@@ -150,7 +149,6 @@ public class StockCandlestickImpl implements StockCandlestick {
             }
         }
     }
-
 
 
 }

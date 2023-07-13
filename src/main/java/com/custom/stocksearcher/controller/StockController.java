@@ -220,7 +220,6 @@ public class StockController {
         codeParam.setBeginDate(beginDate.minusMonths(5).toString());
 
         return stockCalculator.getStockMa(findStockInfo(codeParam), codeParam.getCode())
-                .filter(stockMAResult -> stockMAResult.getDate().isBefore(LocalDate.now()))
                 .filter(stockMAResult -> stockMAResult.getDate().isAfter(beginDate) && stockMAResult.getDate().isBefore(endDate))
                 .sort(Comparator.comparing(StockMAResult::getDate));
     }

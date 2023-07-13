@@ -10,6 +10,7 @@ public interface StockCandlestick {
 
     /**
      * 判斷日K型態
+     *
      * @param stockData 股市資料(日)
      * @return CandlestickType
      */
