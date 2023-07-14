@@ -1,6 +1,7 @@
 package com.custom.stocksearcher.service;
 
 import com.custom.stocksearcher.models.CodeList;
+import com.custom.stocksearcher.models.CodeParam;
 import com.custom.stocksearcher.models.CompanyStatus;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -37,4 +38,21 @@ public interface UserStorage {
      * @return 交集結果
      */
     Flux<CompanyStatus> getIntersectionFromCodeList(List<String> codeListIds);
+
+    /**
+     * 取得篩選範圍
+     *
+     * @param key keyword
+     * @return Flux<CompanyStatus>
+     */
+    Flux<CompanyStatus> getCodeRange(String key);
+
+    /**
+     * 根據範圍產生實際要找的codeParam
+     *
+     * @param companyStatusFlux 範圍
+     * @param codeParam         原有條件
+     * @return Flux<CodeParam>
+     */
+    Flux<CodeParam> wrapperCodeParam(Flux<CompanyStatus> companyStatusFlux, CodeParam codeParam);
 }

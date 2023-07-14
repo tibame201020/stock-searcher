@@ -30,6 +30,7 @@ public enum CandlestickType {
     UnknownType("未定義型態");
 
     private String name;
+
     CandlestickType(String name) {
         this.name = name;
     }

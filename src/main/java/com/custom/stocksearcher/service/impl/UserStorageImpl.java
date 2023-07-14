@@ -1,6 +1,7 @@
 package com.custom.stocksearcher.service.impl;
 
 import com.custom.stocksearcher.models.CodeList;
+import com.custom.stocksearcher.models.CodeParam;
 import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.repo.CodeListRepo;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
@@ -66,5 +67,47 @@ public class UserStorageImpl implements UserStorage {
         }
 
         return companyStatusAllFlux;
+    }
+
+    @Override
+    public Flux<CompanyStatus> getCodeRange(String key) {
+        switch (key) {
+            case "all" -> {
+                return companyStatusRepo.findAll();
+            }
+            case "listed" -> {
+                return companyStatusRepo.findAll().filter(companyStatus -> !companyStatus.isTPE());
+            }
+            case "tpex" -> {
+                return companyStatusRepo.findAll().filter(CompanyStatus::isTPE);
+            }
+            default -> {
+                return codeListRepo
+                        .findById(key)
+                        .flux()
+                        .flatMap(codeList -> Flux.fromIterable(codeList.getCodes()));
+            }
+        }
+    }
+
+    @Override
+    public Flux<CodeParam> wrapperCodeParam(Flux<CompanyStatus> companyStatusFlux, CodeParam codeParam) {
+        return companyStatusFlux.flatMap(
+                companyStatus -> {
+                    CodeParam actualCodeParam = new CodeParam();
+
+                    actualCodeParam.setCode(companyStatus.getCode());
+                    actualCodeParam.setBeginDate(codeParam.getBeginDate());
+                    actualCodeParam.setEndDate(codeParam.getEndDate());
+                    actualCodeParam.setTradeVolumeLimit(codeParam.getTradeVolumeLimit());
+                    actualCodeParam.setKlineCnt(codeParam.getKlineCnt());
+                    actualCodeParam.setLastOpenCalcLimit(codeParam.getLastOpenCalcLimit());
+                    actualCodeParam.setLastCloseCalcLimit(codeParam.getLastCloseCalcLimit());
+                    actualCodeParam.setClosingPriceCompareTarget(codeParam.getClosingPriceCompareTarget());
+                    actualCodeParam.setCandlestickTypeList(codeParam.getCandlestickTypeList());
+
+                    return Mono.just(actualCodeParam);
+                }
+        );
     }
 }

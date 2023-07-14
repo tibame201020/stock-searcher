@@ -2,9 +2,7 @@ package com.custom.stocksearcher.controller;
 
 import com.custom.stocksearcher.models.*;
 import com.custom.stocksearcher.repo.CodeListRepo;
-import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.service.StockCalculator;
-import com.custom.stocksearcher.service.StockCandlestick;
 import com.custom.stocksearcher.service.StockFinder;
 import com.custom.stocksearcher.service.UserStorage;
 import org.apache.commons.logging.Log;
@@ -17,7 +15,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -37,10 +34,6 @@ public class StockController {
     private StockCalculator stockCalculator;
     @Autowired
     private UserStorage userStorage;
-    @Autowired
-    private StockCandlestick stockCandlestick;
-    @Autowired
-    private CompanyStatusRepo companyStatusRepo;
     @Autowired
     private CodeListRepo codeListRepo;
 
@@ -74,46 +67,10 @@ public class StockController {
      */
     @RequestMapping("/getRangeOfHighAndLowPoint")
     public Mono<StockBumpy> getRangeOfHighAndLowPoint(@RequestBody CodeParam codeParam) {
-        Integer klineCnt = codeParam.getKlineCnt();
-        if (null != klineCnt && klineCnt > 0) {
-            LocalDate beginDate = LocalDate.parse(codeParam.getEndDate()).minusDays(klineCnt * 3L);
-            codeParam.setBeginDate(beginDate.toString());
-        }
+        Flux<StockData> stockDataFlux = stockFinder.getStockDataWithKlineCnt(codeParam);
+        stockDataFlux = stockCalculator.preFilterLastStockData(stockDataFlux, codeParam);
 
-        Flux<StockData> stockDataFlux = findStockInfo(codeParam);
-
-        if (null != klineCnt && klineCnt > 0) {
-            stockDataFlux = stockDataFlux.takeLast(klineCnt);
-        }
-
-        Flux<StockData> finalStockDataFlux = Flux.from(stockDataFlux).sort(Comparator.comparing(StockData::getDate));
-
-        finalStockDataFlux = finalStockDataFlux
-                .buffer()
-                .flatMap(stockDataList -> {
-                    StockData lastStockData = stockDataList.get(stockDataList.size() - 1);
-                    List<String> candlestickTypeList = codeParam.getCandlestickTypeList();
-                    if (null != candlestickTypeList && !candlestickTypeList.isEmpty()) {
-                        CandlestickType candlestickType = stockCandlestick.detectCandlestickType(lastStockData);
-                        if (!candlestickTypeList.contains(candlestickType.getName())) {
-                            return Flux.empty();
-                        }
-                    }
-
-                    BigDecimal openPrice = lastStockData.getOpeningPrice();
-                    BigDecimal closingPrice = lastStockData.getClosingPrice();
-                    BigDecimal lowestPrice = lastStockData.getLowestPrice();
-                    BigDecimal lastOpenCalc = openPrice.subtract(lowestPrice).divide(lowestPrice, 4, RoundingMode.FLOOR).multiply(BigDecimal.valueOf(100));
-                    BigDecimal lastCloseCalc = closingPrice.subtract(lowestPrice).divide(lowestPrice, 4, RoundingMode.FLOOR).multiply(BigDecimal.valueOf(100));
-
-                    if ((lastOpenCalc.compareTo(codeParam.getLastOpenCalcLimit()) >= 0) && (lastCloseCalc.compareTo(codeParam.getLastCloseCalcLimit()) >= 0)) {
-                        return Flux.fromIterable(stockDataList);
-                    } else {
-                        return Flux.empty();
-                    }
-                });
-
-        return stockCalculator.getRangeOfHighAndLowPoint(finalStockDataFlux, codeParam)
+        return stockCalculator.getRangeOfHighAndLowPoint(stockDataFlux, codeParam)
                 .filter(stockBumpy -> stockBumpy.getLowestTradeVolume().compareTo(codeParam.getTradeVolumeLimit()) >= 0)
                 .flatMap(stockBumpy -> {
                     if ("none".equalsIgnoreCase(codeParam.getClosingPriceCompareTarget())) {
@@ -164,36 +121,9 @@ public class StockController {
         BigDecimal bumpyHighLimit = codeParam.getBumpyHighLimit();
         BigDecimal bumpyLowLimit = codeParam.getBumpyLowLimit();
 
-        Flux<CompanyStatus> companyStatusFlux;
-        if ("all".equalsIgnoreCase(codeParam.getCode())) {
-            companyStatusFlux = companyStatusRepo.findAll();
-        } else if ("listed".equalsIgnoreCase(codeParam.getCode())) {
-            companyStatusFlux = companyStatusRepo.findAll().filter(companyStatus -> !companyStatus.isTPE());
-        } else if ("tpex".equalsIgnoreCase(codeParam.getCode())) {
-            companyStatusFlux = companyStatusRepo.findAll().filter(CompanyStatus::isTPE);
-        } else {
-            companyStatusFlux = codeListRepo
-                    .findById(codeParam.getCode())
-                    .flux()
-                    .flatMap(codeList -> Flux.fromIterable(codeList.getCodes()));
-        }
+        Flux<CompanyStatus> companyStatusFlux = userStorage.getCodeRange(codeParam.getCode());
+        Flux<CodeParam> codeParamFlux = userStorage.wrapperCodeParam(companyStatusFlux, codeParam);
 
-        Flux<CodeParam> codeParamFlux = companyStatusFlux.flatMap(
-                companyStatus -> {
-                    CodeParam codeParam1 = new CodeParam();
-                    codeParam1.setCode(companyStatus.getCode());
-                    codeParam1.setBeginDate(codeParam.getBeginDate());
-                    codeParam1.setEndDate(codeParam.getEndDate());
-                    codeParam1.setTradeVolumeLimit(codeParam.getTradeVolumeLimit());
-                    codeParam1.setKlineCnt(codeParam.getKlineCnt());
-                    codeParam1.setLastOpenCalcLimit(codeParam.getLastOpenCalcLimit());
-                    codeParam1.setLastCloseCalcLimit(codeParam.getLastCloseCalcLimit());
-                    codeParam1.setClosingPriceCompareTarget(codeParam.getClosingPriceCompareTarget());
-                    codeParam1.setCandlestickTypeList(codeParam.getCandlestickTypeList());
-
-                    return Mono.just(codeParam1);
-                }
-        );
         return codeParamFlux
                 .flatMap(this::getRangeOfHighAndLowPoint)
                 .filter(stockBumpy -> {

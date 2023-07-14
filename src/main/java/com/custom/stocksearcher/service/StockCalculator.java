@@ -33,4 +33,6 @@ public interface StockCalculator {
      * @return 計算結果StockMAResult Flux
      */
     Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, String code);
+
+    Flux<StockData> preFilterLastStockData(Flux<StockData> stockDataFlux, CodeParam codeParam);
 }

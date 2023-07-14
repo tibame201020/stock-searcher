@@ -91,7 +91,7 @@ public class Schedule {
                 .sort(Comparator.comparing(CodeWithYearMonth::getCode))
                 .map(codeWithYearMonth -> getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()));
 
-        urls.delayElements(Duration.ofSeconds(3))
+        urls.delayElements(Duration.ofMillis(3500))
                 .flatMap(url -> stockCrawler.getListedStockDataFromTWSEApi(url))
                 .subscribe(
                         result -> log.info("取得上市股票資料 : " + result.getListedStockId()),
@@ -130,7 +130,7 @@ public class Schedule {
                 .flatMap(date -> Mono.just(date.toString().replaceAll("-", "/")))
                 .flatMap(dateStr -> Mono.just(String.format(TPEx_LIST_URL, dateStr)));
 
-        urls.delayElements(Duration.ofSeconds(1))
+        urls.delayElements(Duration.ofMillis(1000))
                 .flatMap(url -> stockCrawler.getTPExStockFromTPEx(url))
                 .subscribe(
                         result -> log.info("取得上櫃股票資料 : " + result.getTpExStockId()),

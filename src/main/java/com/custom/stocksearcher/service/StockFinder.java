@@ -29,4 +29,6 @@ public interface StockFinder {
      */
     Flux<CompanyStatus> findCompaniesByKeyWord(String keyword);
 
+    Flux<StockData> getStockDataWithKlineCnt(CodeParam codeParam);
+
 }

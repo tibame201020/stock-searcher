@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 
 @Service
 public class StockFinderImpl implements StockFinder {
@@ -57,6 +58,22 @@ public class StockFinderImpl implements StockFinder {
                     }
                 })
                 .filter(companyStatus -> companyStatus.toString().contains(keyword));
+    }
+
+    @Override
+    public Flux<StockData> getStockDataWithKlineCnt(CodeParam codeParam) {
+        Integer klineCnt = codeParam.getKlineCnt();
+        if (null != klineCnt && klineCnt > 0) {
+            LocalDate beginDate = LocalDate.parse(codeParam.getEndDate()).minusDays(klineCnt * 3L);
+            codeParam.setBeginDate(beginDate.toString());
+        }
+
+        Flux<StockData> stockDataFlux = findStockInfo(codeParam);
+
+        if (null != klineCnt && klineCnt > 0) {
+            stockDataFlux = stockDataFlux.takeLast(klineCnt);
+        }
+        return Flux.from(stockDataFlux).sort(Comparator.comparing(StockData::getDate));
     }
 
 

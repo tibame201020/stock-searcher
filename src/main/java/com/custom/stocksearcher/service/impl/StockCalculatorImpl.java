@@ -1,11 +1,9 @@
 package com.custom.stocksearcher.service.impl;
 
-import com.custom.stocksearcher.models.CodeParam;
-import com.custom.stocksearcher.models.StockBumpy;
-import com.custom.stocksearcher.models.StockData;
-import com.custom.stocksearcher.models.StockMAResult;
+import com.custom.stocksearcher.models.*;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.service.StockCalculator;
+import com.custom.stocksearcher.service.StockCandlestick;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -21,6 +19,9 @@ import java.util.stream.Stream;
 
 @Service
 public class StockCalculatorImpl implements StockCalculator {
+
+    @Autowired
+    private StockCandlestick stockCandlestick;
 
     @Autowired
     private CompanyStatusRepo companyStatusRepo;
@@ -127,6 +128,56 @@ public class StockCalculatorImpl implements StockCalculator {
                             );
                             return Mono.just(mergedResult);
                         }));
+    }
+
+    @Override
+    public Flux<StockData> preFilterLastStockData(Flux<StockData> stockDataFlux, CodeParam codeParam) {
+        return stockDataFlux
+                .buffer()
+                .flatMap(stockDataList -> {
+                    StockData lastStockData = stockDataList.get(stockDataList.size() - 1);
+                    boolean inCandlestickTypeList = isInCandlestickTypeList(lastStockData, codeParam.getCandlestickTypeList());
+                    boolean inCalcLimit = isInCalcLimit(lastStockData, codeParam.getLastOpenCalcLimit(), codeParam.getLastCloseCalcLimit());
+
+                    if (inCandlestickTypeList && inCalcLimit) {
+                        return Flux.fromIterable(stockDataList);
+                    } else {
+                        return Flux.empty();
+                    }
+                });
+    }
+
+    /**
+     * 是否符合日K型態
+     *
+     * @param stockData           股價資料
+     * @param candlestickTypeList 型態list
+     * @return boolean
+     */
+    private boolean isInCandlestickTypeList(StockData stockData, List<String> candlestickTypeList) {
+        if (null != candlestickTypeList && !candlestickTypeList.isEmpty()) {
+            CandlestickType candlestickType = stockCandlestick.detectCandlestickType(stockData);
+            return candlestickTypeList.contains(candlestickType.getName());
+        }
+        return true;
+    }
+
+    /**
+     * 是否在條件上下限中
+     *
+     * @param stockData      股價資料
+     * @param openCalcLimit  openCalcLimit
+     * @param closeCalcLimit closeCalcLimit
+     * @return boolean
+     */
+    private boolean isInCalcLimit(StockData stockData, BigDecimal openCalcLimit, BigDecimal closeCalcLimit) {
+        BigDecimal openPrice = stockData.getOpeningPrice();
+        BigDecimal closingPrice = stockData.getClosingPrice();
+        BigDecimal lowestPrice = stockData.getLowestPrice();
+        BigDecimal lastOpenCalc = openPrice.subtract(lowestPrice).divide(lowestPrice, 4, RoundingMode.FLOOR).multiply(BigDecimal.valueOf(100));
+        BigDecimal lastCloseCalc = closingPrice.subtract(lowestPrice).divide(lowestPrice, 4, RoundingMode.FLOOR).multiply(BigDecimal.valueOf(100));
+
+        return (lastOpenCalc.compareTo(openCalcLimit) >= 0) && (lastCloseCalc.compareTo(closeCalcLimit) >= 0);
     }
 
     /**
