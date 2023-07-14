@@ -15,11 +15,13 @@ import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -33,6 +35,7 @@ import static com.custom.stocksearcher.constant.Constant.TPEx_COMPANY_URL;
 public class StockCrawlerImpl implements StockCrawler {
 
     WebClient webClient = WebClient.builder()
+            .clientConnector(new ReactorClientHttpConnector(HttpClient.create().followRedirect(true)))
             .exchangeStrategies(ExchangeStrategies.builder()
                     .codecs(config -> config.defaultCodecs().maxInMemorySize(1048576 * 100))
                     .build())
@@ -55,9 +58,8 @@ public class StockCrawlerImpl implements StockCrawler {
                 .uri(url)
                 .retrieve()
                 .bodyToFlux(StockBasicInfo.class)
-                .filter(Objects::nonNull)
+                .filter(stockBasicInfo -> Objects.nonNull(stockBasicInfo) && Objects.nonNull(stockBasicInfo.getData()))
                 .flatMap(stockBasicInfo -> Flux.fromArray(stockBasicInfo.getData()))
-                .filter(data -> data.length > 0)
                 .map(this::wrapperFromData)
                 .flatMap(stockData -> {
                     ListedStockId listedStockId = new ListedStockId();
@@ -111,7 +113,7 @@ public class StockCrawlerImpl implements StockCrawler {
                 .uri(url)
                 .retrieve()
                 .bodyToFlux(TPExUrlObject.class)
-                .filter(Objects::nonNull)
+                .filter(tpExUrlObject -> Objects.nonNull(tpExUrlObject) && Objects.nonNull(tpExUrlObject.getAaData()))
                 .flatMap(tpExUrlObject -> Flux.fromArray(tpExUrlObject.getAaData()))
                 .filter(data -> data[0].length() != 6)
                 .flatMap(data -> {

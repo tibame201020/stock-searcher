@@ -71,7 +71,7 @@ public class Schedule {
      * 上市股票爬蟲
      */
     private void takeListedStock() {
-        Flux<CompanyStatus> companyStatusFlux = checkCompaniesData();
+        Flux<CompanyStatus> companyStatusFlux = getCompaniesData();
 
         Flux<String> urls = companyStatusFlux
                 .filter(companyStatus -> !companyStatus.isTPE())
@@ -94,7 +94,7 @@ public class Schedule {
         urls.delayElements(Duration.ofSeconds(3))
                 .flatMap(url -> stockCrawler.getListedStockDataFromTWSEApi(url))
                 .subscribe(
-                        result -> log.info("取得上市股票資料 : " + result),
+                        result -> log.info("取得上市股票資料 : " + result.getListedStockId()),
                         err -> log.error(String.format("取得上市股票資料錯誤: %s", err)),
                         () -> {
                             log.info("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat());
@@ -120,7 +120,7 @@ public class Schedule {
         Mono<TPExStock> tpExStockMono = tpExStockRepo.findFirstByOrderByDateDescUpdateDateDesc()
                 .switchIfEmpty(defaultTpExStockMono);
 
-        Flux.from(tpExStockMono)
+        Flux<String> urls = Flux.from(tpExStockMono)
                 .flatMap(tpExStock -> Mono.just(tpExStock.getTpExStockId().getDate().minusDays(1)))
                 .flatMap(beginDate -> Flux.fromIterable(dateProvider.calculateMonthList(beginDate, LocalDate.now())))
                 .flatMap(yearMonth ->
@@ -128,10 +128,12 @@ public class Schedule {
                 .filter(date -> date.isBefore(LocalDate.now().plusDays(1)))
                 .sort()
                 .flatMap(date -> Mono.just(date.toString().replaceAll("-", "/")))
-                .flatMap(dateStr -> Mono.just(String.format(TPEx_LIST_URL, dateStr)))
+                .flatMap(dateStr -> Mono.just(String.format(TPEx_LIST_URL, dateStr)));
+
+        urls.delayElements(Duration.ofSeconds(1))
                 .flatMap(url -> stockCrawler.getTPExStockFromTPEx(url))
                 .subscribe(
-                        result -> log.info("取得上櫃股票資料 : " + result),
+                        result -> log.info("取得上櫃股票資料 : " + result.getTpExStockId()),
                         err -> log.error(String.format("取得上櫃股票資料錯誤: %s", err)),
                         () -> {
                             log.info("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat());
@@ -261,13 +263,12 @@ public class Schedule {
      * 若無 則從openapi撈取
      * 屬於前置作業
      */
-    public Flux<CompanyStatus> checkCompaniesData() {
-        Flux<CompanyStatus> companyStatusFlux = companyStatusRepo.findByUpdateDate(LocalDate.now());
+    public Flux<CompanyStatus> getCompaniesData() {
         Flux<CompanyStatus> fromOpenApiFlux = Flux.defer(() -> {
-            log.info("need update companies list");
+            log.info("update companies list");
             return stockCrawler.getCompanies();
         });
-        return companyStatusFlux.switchIfEmpty(fromOpenApiFlux).filter(companyStatus -> !companyStatus.isTPE());
+        return fromOpenApiFlux;
     }
 
 
