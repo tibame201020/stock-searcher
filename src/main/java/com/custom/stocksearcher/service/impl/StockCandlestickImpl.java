@@ -90,7 +90,6 @@ public class StockCandlestickImpl implements StockCandlestick {
         }
     }
 
-
     private CandlestickType greenCharge(BigDecimal bodyLine, BigDecimal upperShadowLine, BigDecimal lowerShadowLine) {
         BigDecimal hammerLimit = BigDecimal.valueOf(1.2);
         BigDecimal CylinderLimit = BigDecimal.valueOf(0.2);

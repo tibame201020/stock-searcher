@@ -46,6 +46,7 @@ public class StockCrawlerImpl implements StockCrawler {
         try {
             stockBasicInfo = webProvider.getUrlToObject(url, StockBasicInfo.class);
         } catch (Exception e) {
+            log.error("get listed stock from url error:\n" + url);
             return Flux.empty();
         }
 
@@ -102,12 +103,12 @@ public class StockCrawlerImpl implements StockCrawler {
         }
         String reportDate = tpExUrlObject.getReportDate();
 
-        return Flux.fromArray(tpExUrlObject.getAaData())
+        Flux<TPExStock> tpExStockFlux = Flux.fromArray(tpExUrlObject.getAaData())
                 .filter(data -> null != data || data.length > 0)
                 .filter(data -> data[0].length() != 6)
-                .flatMap(data -> Flux.just(wrapperFromData(data, reportDate)))
-                .buffer()
-                .flatMap(tpExStockList -> tpExStockRepo.saveAll(tpExStockList));
+                .flatMap(data -> Flux.just(wrapperFromData(data, reportDate)));
+
+        return tpExStockRepo.saveAll(tpExStockFlux);
     }
 
     /**

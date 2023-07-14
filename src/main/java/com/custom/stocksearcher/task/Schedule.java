@@ -30,7 +30,6 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
 import java.util.List;
 
 import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_BEGIN;
@@ -74,7 +73,7 @@ public class Schedule {
     private void takeListedStock() {
         Flux<CompanyStatus> companyStatusFlux = checkCompaniesData();
 
-        companyStatusFlux
+        Flux<CodeWithYearMonth> codeWithYearMonthFlux = companyStatusFlux
                 .filter(companyStatus -> !companyStatus.isTPE())
                 .map(CompanyStatus::getCode)
                 .flatMap(code ->
@@ -87,19 +86,16 @@ public class Schedule {
                                     listedStock.setDate(LocalDate.parse(STOCK_CRAWLER_BEGIN));
                                     return Mono.just(listedStock);
                                 })))
-                .sort(Comparator.comparing(listedStock -> listedStock.getListedStockId().getCode()))
                 .filter(listedStock -> listedStock.getDate().isBefore(LocalDate.now()))
-                .flatMap(listedStock -> {
-                    List<YearMonth> yearMonths = dateProvider.calculateMonthList(listedStock.getDate(), LocalDate.now());
-                    return Flux.fromIterable(yearMonths).map(yearMonth -> {
-                        CodeWithYearMonth codeWithYearMonth = new CodeWithYearMonth();
-                        codeWithYearMonth.setCode(listedStock.getListedStockId().getCode());
-                        codeWithYearMonth.setYearMonth(yearMonth);
-                        return codeWithYearMonth;
-                    });
+                .flatMap(this::processCodeWithYearMonth);
+
+        codeWithYearMonthFlux.delayElements(Duration.ofSeconds(3))
+                .flatMap(codeWithYearMonth -> {
+                    String code = codeWithYearMonth.getCode();
+                    YearMonth yearMonth = codeWithYearMonth.getYearMonth();
+                    log.info(String.format("準備爬取股票資料: %s, %s", code, yearMonth));
+                    return getStockMonthDataFluxFromOpenApi(code, yearMonth);
                 })
-                .delayElements(Duration.ofSeconds(6))
-                .flatMap(codeWithYearMonth -> getStockMonthDataFluxFromOpenApi(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()))
                 .subscribe(
                         result -> log.info("取得上市股票資料 : " + result),
                         err -> log.error(String.format("取得上市股票資料錯誤: %s", err)),
@@ -287,5 +283,21 @@ public class Schedule {
         return stockCrawler.getListedStockDataFromTWSEApi(code, yearMonth.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
     }
 
+    /**
+     * 包裝準備爬取資料
+     *
+     * @param listedStock db中最後一筆
+     * @return 剩餘準備爬取資料
+     */
+    private Flux<CodeWithYearMonth> processCodeWithYearMonth(ListedStock listedStock) {
+        List<YearMonth> yearMonths = dateProvider.calculateMonthList(listedStock.getDate(), LocalDate.now());
+        return Flux.fromIterable(yearMonths).map(yearMonth -> {
+            CodeWithYearMonth codeWithYearMonth = new CodeWithYearMonth();
+            codeWithYearMonth.setCode(listedStock.getListedStockId().getCode());
+            codeWithYearMonth.setYearMonth(yearMonth);
+
+            return codeWithYearMonth;
+        });
+    }
 
 }

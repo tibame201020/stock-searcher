@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.time.LocalDate;
-import java.util.Collections;
 
 @Service
 public class StockFinderImpl implements StockFinder {
@@ -32,15 +31,12 @@ public class StockFinderImpl implements StockFinder {
 
     @Override
     public Flux<StockData> findStockInfo(CodeParam codeParam) {
-        Flux<StockData> tpexStockDataFlux = findTPExStock(codeParam);
-        Flux<StockData> listedStockDataFlux = findListedStock(codeParam);
-
-        return companyStatusRepo.findAllById(Collections.singleton(codeParam.getCode()))
+        return Flux.from(companyStatusRepo.findById(codeParam.getCode()))
                 .flatMap(companyStatus -> {
                     if (companyStatus.isTPE()) {
-                        return tpexStockDataFlux;
+                        return findTPExStock(codeParam);
                     } else {
-                        return listedStockDataFlux;
+                        return findListedStock(codeParam);
                     }
                 })
                 .filter(this::verifyStockData);
@@ -71,8 +67,7 @@ public class StockFinderImpl implements StockFinder {
      * @return
      */
     private Flux<StockData> findListedStock(CodeParam codeParam) {
-        return companyStatusRepo
-                .findAllById(Collections.singleton(codeParam.getCode()))
+        return Flux.from(companyStatusRepo.findById(codeParam.getCode()))
                 .filter(companyStatus -> !companyStatus.isTPE())
                 .flatMap(companyStatus -> listedStockRepo
                         .findByListedStockId_CodeAndDateBetweenOrderByDate(
@@ -91,8 +86,7 @@ public class StockFinderImpl implements StockFinder {
      * @return
      */
     private Flux<StockData> findTPExStock(CodeParam codeParam) {
-        return companyStatusRepo
-                .findAllById(Collections.singleton(codeParam.getCode()))
+        return Flux.from(companyStatusRepo.findById(codeParam.getCode()))
                 .filter(CompanyStatus::isTPE)
                 .filter(companyStatus -> companyStatus.getCode().length() != 6)
                 .flatMap(companyStatus -> tpExStockRepo
