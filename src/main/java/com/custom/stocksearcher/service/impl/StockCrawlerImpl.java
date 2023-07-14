@@ -10,26 +10,33 @@ import com.custom.stocksearcher.models.tpex.TPExStock;
 import com.custom.stocksearcher.models.tpex.TPExStockId;
 import com.custom.stocksearcher.models.tpex.TPExUrlObject;
 import com.custom.stocksearcher.provider.DateProvider;
-import com.custom.stocksearcher.provider.WebProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.LocalDate;
+import java.util.Objects;
 
-import static com.custom.stocksearcher.constant.Constant.*;
+import static com.custom.stocksearcher.constant.Constant.COMPANY_URL;
+import static com.custom.stocksearcher.constant.Constant.TPEx_COMPANY_URL;
 
 @Service
 public class StockCrawlerImpl implements StockCrawler {
 
-    @Autowired
-    private WebProvider webProvider;
+    WebClient webClient = WebClient.builder()
+            .exchangeStrategies(ExchangeStrategies.builder()
+                    .codecs(config -> config.defaultCodecs().maxInMemorySize(1048576 * 100))
+                    .build())
+            .build();
     @Autowired
     private DateProvider dateProvider;
     @Autowired
@@ -40,26 +47,21 @@ public class StockCrawlerImpl implements StockCrawler {
     private TPExStockRepo tpExStockRepo;
 
     @Override
-    public Flux<ListedStock> getListedStockDataFromTWSEApi(String stockCode, String dateStr) {
-        String url = String.format(STOCK_INFO_URL, dateStr, stockCode);
-        StockBasicInfo stockBasicInfo;
-        try {
-            stockBasicInfo = webProvider.getUrlToObject(url, StockBasicInfo.class);
-        } catch (Exception e) {
-            log.error("get listed stock from url error:\n" + url);
-            return Flux.empty();
-        }
+    public Flux<ListedStock> getListedStockDataFromTWSEApi(String url) {
+        String code = getUrlParam(url, "stockNo");
 
-        if (null == stockBasicInfo || null == stockBasicInfo.getData()) {
-            return Flux.empty();
-        }
-
-        Flux<ListedStock> listedStockFlux = Flux.fromArray(stockBasicInfo.getData())
+        Flux<ListedStock> listedStockFlux = webClient
+                .post()
+                .uri(url)
+                .retrieve()
+                .bodyToFlux(StockBasicInfo.class)
+                .filter(Objects::nonNull)
+                .flatMap(stockBasicInfo -> Flux.fromArray(stockBasicInfo.getData()))
                 .filter(data -> data.length > 0)
                 .map(this::wrapperFromData)
                 .flatMap(stockData -> {
                     ListedStockId listedStockId = new ListedStockId();
-                    listedStockId.setCode(stockCode);
+                    listedStockId.setCode(code);
                     listedStockId.setDate(stockData.getDate());
                     ListedStock listedStock = new ListedStock();
                     listedStock.setListedStockId(listedStockId);
@@ -75,11 +77,19 @@ public class StockCrawlerImpl implements StockCrawler {
 
     @Override
     public Flux<CompanyStatus> getCompanies() {
-        TPExCompany[] tpExCompanies = webProvider.getUrlToObject(TPEx_COMPANY_URL, TPExCompany[].class);
-        CompanyStatus[] companies = webProvider.getUrlToObject(COMPANY_URL, CompanyStatus[].class);
-        assert tpExCompanies != null;
-        assert companies != null;
-        Flux<CompanyStatus> companyStatusFlux = Flux.fromArray(tpExCompanies)
+        Flux<TPExCompany> tpExCompanyFlux = webClient
+                .get()
+                .uri(TPEx_COMPANY_URL)
+                .retrieve()
+                .bodyToFlux(TPExCompany.class);
+
+        Flux<CompanyStatus> companyStatusFlux = webClient
+                .get()
+                .uri(COMPANY_URL)
+                .retrieve()
+                .bodyToFlux(CompanyStatus.class);
+
+        Flux<CompanyStatus> totalCompanyFlux = tpExCompanyFlux
                 .filter(tpExCompany -> tpExCompany.getCode().length() != 6)
                 .flatMap(tpExCompany -> {
                     CompanyStatus companyStatus = new CompanyStatus();
@@ -88,25 +98,26 @@ public class StockCrawlerImpl implements StockCrawler {
                     companyStatus.setTPE(true);
                     return Mono.just(companyStatus);
                 })
-                .concatWith(Flux.fromArray(companies));
+                .concatWith(companyStatusFlux);
 
-        return companyStatusRepo.saveAll(companyStatusFlux);
+        return companyStatusRepo.saveAll(totalCompanyFlux);
     }
 
     @Override
     public Flux<TPExStock> getTPExStockFromTPEx(String url) {
-        TPExUrlObject tpExUrlObject;
-        try {
-            tpExUrlObject = webProvider.getUrlToObject(url, TPExUrlObject.class);
-        } catch (Exception e) {
-            return Flux.empty();
-        }
-        String reportDate = tpExUrlObject.getReportDate();
-
-        Flux<TPExStock> tpExStockFlux = Flux.fromArray(tpExUrlObject.getAaData())
-                .filter(data -> null != data || data.length > 0)
+        String reportDate = getUrlParam(url, "d");
+        Flux<TPExStock> tpExStockFlux = webClient
+                .post()
+                .uri(url)
+                .retrieve()
+                .bodyToFlux(TPExUrlObject.class)
+                .filter(Objects::nonNull)
+                .flatMap(tpExUrlObject -> Flux.fromArray(tpExUrlObject.getAaData()))
                 .filter(data -> data[0].length() != 6)
-                .flatMap(data -> Flux.just(wrapperFromData(data, reportDate)));
+                .flatMap(data -> {
+                    assert reportDate != null;
+                    return Flux.just(wrapperFromData(data, reportDate));
+                });
 
         return tpExStockRepo.saveAll(tpExStockFlux);
     }
@@ -179,5 +190,32 @@ public class StockCrawlerImpl implements StockCrawler {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * 從url取得param value
+     *
+     * @param url 目標url
+     * @param key param key
+     * @return value
+     */
+    private String getUrlParam(String url, String key) {
+        try {
+            URI uri = new URI(url);
+            String query = uri.getQuery();
+
+            if (query != null && !query.isEmpty()) {
+                String[] parameters = query.split("&");
+                for (String parameter : parameters) {
+                    String[] keyValue = parameter.split("=");
+                    if (keyValue.length == 2 && keyValue[0].equals(key)) {
+                        return keyValue[1];
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("get url param error");
+        }
+        return null;
     }
 }

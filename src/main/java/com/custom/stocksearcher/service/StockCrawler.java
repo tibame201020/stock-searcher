@@ -17,11 +17,10 @@ public interface StockCrawler {
     /**
      * 從twse取得股票資訊(上市)
      *
-     * @param stockCode 股票代碼
-     * @param dateStr   日期
+     * @param url 爬蟲網址
      * @return Flux<ListedStock>
      */
-    Flux<ListedStock> getListedStockDataFromTWSEApi(String stockCode, String dateStr);
+    Flux<ListedStock> getListedStockDataFromTWSEApi(String url);
 
     /**
      * 從twse open api 取得公司名稱與股票代號

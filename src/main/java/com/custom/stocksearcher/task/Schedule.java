@@ -30,10 +30,10 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 
-import static com.custom.stocksearcher.constant.Constant.STOCK_CRAWLER_BEGIN;
-import static com.custom.stocksearcher.constant.Constant.TPEx_LIST_URL;
+import static com.custom.stocksearcher.constant.Constant.*;
 
 /**
  * 股價爬蟲Task
@@ -73,7 +73,7 @@ public class Schedule {
     private void takeListedStock() {
         Flux<CompanyStatus> companyStatusFlux = checkCompaniesData();
 
-        Flux<CodeWithYearMonth> codeWithYearMonthFlux = companyStatusFlux
+        Flux<String> urls = companyStatusFlux
                 .filter(companyStatus -> !companyStatus.isTPE())
                 .map(CompanyStatus::getCode)
                 .flatMap(code ->
@@ -87,15 +87,12 @@ public class Schedule {
                                     return Mono.just(listedStock);
                                 })))
                 .filter(listedStock -> listedStock.getDate().isBefore(LocalDate.now()))
-                .flatMap(this::processCodeWithYearMonth);
+                .flatMap(this::processCodeWithYearMonth)
+                .sort(Comparator.comparing(CodeWithYearMonth::getCode))
+                .map(codeWithYearMonth -> getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()));
 
-        codeWithYearMonthFlux.delayElements(Duration.ofSeconds(3))
-                .flatMap(codeWithYearMonth -> {
-                    String code = codeWithYearMonth.getCode();
-                    YearMonth yearMonth = codeWithYearMonth.getYearMonth();
-                    log.info(String.format("準備爬取股票資料: %s, %s", code, yearMonth));
-                    return getStockMonthDataFluxFromOpenApi(code, yearMonth);
-                })
+        urls.delayElements(Duration.ofSeconds(3))
+                .flatMap(url -> stockCrawler.getListedStockDataFromTWSEApi(url))
                 .subscribe(
                         result -> log.info("取得上市股票資料 : " + result),
                         err -> log.error(String.format("取得上市股票資料錯誤: %s", err)),
@@ -128,6 +125,8 @@ public class Schedule {
                 .flatMap(beginDate -> Flux.fromIterable(dateProvider.calculateMonthList(beginDate, LocalDate.now())))
                 .flatMap(yearMonth ->
                         Flux.range(1, yearMonth.lengthOfMonth()).map(yearMonth::atDay))
+                .filter(date -> date.isBefore(LocalDate.now().plusDays(1)))
+                .sort()
                 .flatMap(date -> Mono.just(date.toString().replaceAll("-", "/")))
                 .flatMap(dateStr -> Mono.just(String.format(TPEx_LIST_URL, dateStr)))
                 .flatMap(url -> stockCrawler.getTPExStockFromTPEx(url))
@@ -273,14 +272,15 @@ public class Schedule {
 
 
     /**
-     * 從twse取得StockMonthData
+     * 取得twse url
      *
      * @param code      股票代號
      * @param yearMonth 月份
-     * @return Flux<StockMonthData>
+     * @return url
      */
-    private Flux<ListedStock> getStockMonthDataFluxFromOpenApi(String code, YearMonth yearMonth) {
-        return stockCrawler.getListedStockDataFromTWSEApi(code, yearMonth.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+    private String getTwseUrl(String code, YearMonth yearMonth) {
+        String date = yearMonth.atDay(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        return String.format(STOCK_INFO_URL, date, code);
     }
 
     /**
