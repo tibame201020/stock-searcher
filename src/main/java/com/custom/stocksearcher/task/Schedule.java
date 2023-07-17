@@ -28,6 +28,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -53,13 +54,13 @@ public class Schedule {
     private ListedStockRepo listedStockRepo;
 
     /**
-     * 爬蟲主程式 (每兩小時執行一次)
+     * 爬蟲主程式 (每一小時執行一次)
      * checkImportFile 匯入上市股票資料
      * checkImportTPExFile 匯入上櫃股票資料
      * takeListedStock 取得上市股票資料
      * takeTPExList 取得上櫃股票資料
      */
-    @Scheduled(fixedDelay = 1000 * 60 * 60 * 2)
+    @Scheduled(fixedDelay = 1000 * 60 * 60)
     public void crawlStockData() throws Exception {
         checkImportListedFile();
         checkImportTPExFile();
@@ -86,12 +87,18 @@ public class Schedule {
                                     listedStock.setDate(LocalDate.parse(STOCK_CRAWLER_BEGIN));
                                     return Mono.just(listedStock);
                                 })))
-                .filter(listedStock -> listedStock.getDate().isBefore(LocalDate.now()))
+                .filter(listedStock -> {
+                    if (null == listedStock.getUpdateDate()) {
+                        return true;
+                    } else {
+                        return filterListedStock(listedStock);
+                    }
+                })
                 .flatMap(this::processCodeWithYearMonth)
                 .sort(Comparator.comparing(CodeWithYearMonth::getCode))
                 .map(codeWithYearMonth -> getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()));
 
-        urls.delayElements(Duration.ofMillis(3500))
+        urls.delayElements(Duration.ofMillis(4500))
                 .flatMap(url -> stockCrawler.getListedStockDataFromTWSEApi(url))
                 .subscribe(
                         result -> log.info("取得上市股票資料 : " + result.getListedStockId()),
@@ -102,6 +109,32 @@ public class Schedule {
                         }
                 );
 
+
+    }
+
+    /**
+     * 過濾需要爬蟲的listedStock
+     *
+     * @param listedStock listedStock
+     * @return boolean
+     */
+    private boolean filterListedStock(ListedStock listedStock) {
+        LocalDate sysDate = LocalDate.now();
+        LocalDate date = listedStock.getDate();
+        LocalDate updateDate = listedStock.getUpdateDate();
+        int hour = LocalDateTime.now().getHour();
+
+        if (sysDate.isEqual(date)) {
+            return false;
+        }
+
+        if (sysDate.isEqual(updateDate) && (hour < 15)) {
+            YearMonth sysYearMonth = YearMonth.from(sysDate);
+            YearMonth stockYearMonth = YearMonth.from(date);
+            return !stockYearMonth.atEndOfMonth().isEqual(sysYearMonth.atEndOfMonth());
+        }
+
+        return true;
 
     }
 
@@ -264,11 +297,10 @@ public class Schedule {
      * 屬於前置作業
      */
     public Flux<CompanyStatus> getCompaniesData() {
-        Flux<CompanyStatus> fromOpenApiFlux = Flux.defer(() -> {
+        return Flux.defer(() -> {
             log.info("update companies list");
             return stockCrawler.getCompanies();
         });
-        return fromOpenApiFlux;
     }
 
 
