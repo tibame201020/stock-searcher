@@ -70,24 +70,24 @@ public class UserStorageImpl implements UserStorage {
     }
 
     @Override
-    public Flux<CompanyStatus> getCodeRange(String key) {
+    public Flux<CompanyStatus> getCodeRange(String key, boolean without4upCode) {
+        Flux<CompanyStatus> companyStatusFlux;
         switch (key) {
-            case "all" -> {
-                return companyStatusRepo.findAll();
-            }
-            case "listed" -> {
-                return companyStatusRepo.findAll().filter(companyStatus -> !companyStatus.isTPE());
-            }
-            case "tpex" -> {
-                return companyStatusRepo.findAll().filter(CompanyStatus::isTPE);
-            }
-            default -> {
-                return codeListRepo
-                        .findById(key)
-                        .flux()
-                        .flatMap(codeList -> Flux.fromIterable(codeList.getCodes()));
-            }
+            case "all" -> companyStatusFlux = companyStatusRepo.findAll();
+            case "listed" ->
+                    companyStatusFlux = companyStatusRepo.findAll().filter(companyStatus -> !companyStatus.isTPE());
+            case "tpex" -> companyStatusFlux = companyStatusRepo.findAll().filter(CompanyStatus::isTPE);
+            default -> companyStatusFlux = codeListRepo
+                    .findById(key)
+                    .flux()
+                    .flatMap(codeList -> Flux.fromIterable(codeList.getCodes()));
         }
+
+        if (without4upCode) {
+            return companyStatusFlux.filter(companyStatus -> companyStatus.getCode().length() <= 4);
+        }
+
+        return companyStatusFlux;
     }
 
     @Override
@@ -105,6 +105,8 @@ public class UserStorageImpl implements UserStorage {
                     actualCodeParam.setLastCloseCalcLimit(codeParam.getLastCloseCalcLimit());
                     actualCodeParam.setClosingPriceCompareTarget(codeParam.getClosingPriceCompareTarget());
                     actualCodeParam.setCandlestickTypeList(codeParam.getCandlestickTypeList());
+                    actualCodeParam.setPriceLowLimit(codeParam.getPriceLowLimit());
+                    actualCodeParam.setPriceHighLimit(codeParam.getPriceHighLimit());
 
                     return Mono.just(actualCodeParam);
                 }

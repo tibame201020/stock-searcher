@@ -12,6 +12,7 @@ import reactor.util.function.Tuples;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -95,7 +96,7 @@ public class StockCalculatorImpl implements StockCalculator {
     }
 
     @Override
-    public Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, String code) {
+    public Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, String code, LocalDate beginDate, LocalDate endDate) {
         Flux<Integer> periods = Flux.just(5, 10, 20, 60);
 
         return periods
@@ -127,7 +128,9 @@ public class StockCalculatorImpl implements StockCalculator {
                                     }
                             );
                             return Mono.just(mergedResult);
-                        }));
+                        }))
+                .filter(stockMAResult -> stockMAResult.getDate().isAfter(beginDate) && stockMAResult.getDate().isBefore(endDate))
+                .sort(Comparator.comparing(StockMAResult::getDate));
     }
 
     @Override
@@ -136,15 +139,25 @@ public class StockCalculatorImpl implements StockCalculator {
                 .buffer()
                 .flatMap(stockDataList -> {
                     StockData lastStockData = stockDataList.get(stockDataList.size() - 1);
-                    boolean inCandlestickTypeList = isInCandlestickTypeList(lastStockData, codeParam.getCandlestickTypeList());
-                    boolean inCalcLimit = isInCalcLimit(lastStockData, codeParam.getLastOpenCalcLimit(), codeParam.getLastCloseCalcLimit());
-
-                    if (inCandlestickTypeList && inCalcLimit) {
-                        return Flux.fromIterable(stockDataList);
-                    } else {
+                    if (!isInPriceRange(lastStockData, codeParam.getPriceLowLimit(), codeParam.getPriceHighLimit())) {
                         return Flux.empty();
                     }
+                    if (!isInCandlestickTypeList(lastStockData, codeParam.getCandlestickTypeList())) {
+                        return Flux.empty();
+                    }
+                    if (!isInCalcLimit(lastStockData, codeParam.getLastOpenCalcLimit(), codeParam.getLastCloseCalcLimit())) {
+                        return Flux.empty();
+                    }
+                    return Flux.fromIterable(stockDataList);
                 });
+    }
+
+    private boolean isInPriceRange(StockData stockData, BigDecimal priceLowLimit, BigDecimal priceHighLimit) {
+        BigDecimal closingPrice = stockData.getClosingPrice();
+        if (priceHighLimit.compareTo(BigDecimal.ZERO) > 0) {
+            return (closingPrice.compareTo(priceLowLimit) >= 0) && (closingPrice.compareTo(priceHighLimit) <= 0);
+        }
+        return (closingPrice.compareTo(priceLowLimit) >= 0);
     }
 
     /**

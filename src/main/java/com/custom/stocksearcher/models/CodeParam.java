@@ -44,4 +44,8 @@ public class CodeParam implements Serializable {
     private String closingPriceCompareTarget;
 
     private List<String> candlestickTypeList;
+
+    private boolean without4upCode;
+    private BigDecimal priceLowLimit;
+    private BigDecimal priceHighLimit;
 }

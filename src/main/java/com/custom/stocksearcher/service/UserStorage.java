@@ -42,10 +42,11 @@ public interface UserStorage {
     /**
      * 取得篩選範圍
      *
-     * @param key keyword
+     * @param key            keyword
+     * @param without4upCode without4upCode
      * @return Flux<CompanyStatus>
      */
-    Flux<CompanyStatus> getCodeRange(String key);
+    Flux<CompanyStatus> getCodeRange(String key, boolean without4upCode);
 
     /**
      * 根據範圍產生實際要找的codeParam

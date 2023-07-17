@@ -73,10 +73,6 @@ public class StockController {
         return stockCalculator.getRangeOfHighAndLowPoint(stockDataFlux, codeParam)
                 .filter(stockBumpy -> stockBumpy.getLowestTradeVolume().compareTo(codeParam.getTradeVolumeLimit()) >= 0)
                 .flatMap(stockBumpy -> {
-                    if ("none".equalsIgnoreCase(codeParam.getClosingPriceCompareTarget())) {
-                        return Mono.just(stockBumpy);
-                    }
-
                     CodeParam stockMAParam = new CodeParam();
                     stockMAParam.setCode(codeParam.getCode());
                     stockMAParam.setBeginDate(stockBumpy.getEndDate());
@@ -121,7 +117,7 @@ public class StockController {
         BigDecimal bumpyHighLimit = codeParam.getBumpyHighLimit();
         BigDecimal bumpyLowLimit = codeParam.getBumpyLowLimit();
 
-        Flux<CompanyStatus> companyStatusFlux = userStorage.getCodeRange(codeParam.getCode());
+        Flux<CompanyStatus> companyStatusFlux = userStorage.getCodeRange(codeParam.getCode(), codeParam.isWithout4upCode());
         Flux<CodeParam> codeParamFlux = userStorage.wrapperCodeParam(companyStatusFlux, codeParam);
 
         return codeParamFlux
@@ -134,7 +130,7 @@ public class StockController {
                     }
                 })
                 .filter(stockBumpy -> stockBumpy.getCalcResult().compareTo(bumpyLowLimit) >= 0)
-                .sort(Comparator.comparing(stockBumpy -> stockBumpy.getCalcResult().negate()));
+                .sort(Comparator.comparing(stockBumpy -> stockBumpy.getLastStockMA().getPrice().negate()));
     }
 
     /**
@@ -143,15 +139,13 @@ public class StockController {
      * @param codeParam 查詢bean
      * @return 計算結果
      */
-    @RequestMapping("getStockMa")
+    @RequestMapping("/getStockMa")
     public Flux<StockMAResult> getStockMa(@RequestBody CodeParam codeParam) {
         LocalDate beginDate = LocalDate.parse(codeParam.getBeginDate()).minusDays(1);
         LocalDate endDate = LocalDate.parse(codeParam.getEndDate()).plusDays(1);
-        codeParam.setBeginDate(beginDate.minusMonths(3).toString());
+        codeParam.setBeginDate(beginDate.minusMonths(5).toString());
 
-        return stockCalculator.getStockMa(findStockInfo(codeParam), codeParam.getCode())
-                .filter(stockMAResult -> stockMAResult.getDate().isAfter(beginDate) && stockMAResult.getDate().isBefore(endDate))
-                .sort(Comparator.comparing(StockMAResult::getDate));
+        return stockCalculator.getStockMa(findStockInfo(codeParam), codeParam.getCode(), beginDate, endDate);
     }
 
     /**
@@ -160,7 +154,7 @@ public class StockController {
      * @param codeList
      * @return
      */
-    @RequestMapping("saveCodeList")
+    @RequestMapping("/saveCodeList")
     public Flux<CodeList> saveCodeList(@RequestBody CodeList codeList) {
         return userStorage.saveCodeList(codeList);
     }
@@ -171,7 +165,7 @@ public class StockController {
      * @param user
      * @return
      */
-    @RequestMapping("getCodeListByUser")
+    @RequestMapping("/getCodeListByUser")
     public Flux<CodeList> getCodeListByUser(@RequestBody String user) {
         return userStorage.getCodeListByUser(user);
     }
@@ -182,7 +176,7 @@ public class StockController {
      * @param codeListId
      * @return
      */
-    @RequestMapping("getCodeList")
+    @RequestMapping("/getCodeList")
     public Mono<CodeList> getCodeList(@RequestBody String codeListId) {
         return codeListRepo.findById(codeListId);
     }
@@ -193,7 +187,7 @@ public class StockController {
      * @param codeListId
      * @return
      */
-    @RequestMapping("deleteCodeList")
+    @RequestMapping("/deleteCodeList")
     public Mono<Void> deleteCodeList(@RequestBody String codeListId) {
         return codeListRepo.deleteById(codeListId);
     }
@@ -204,12 +198,12 @@ public class StockController {
      * @param codeListIds
      * @return
      */
-    @RequestMapping("getIntersectionFromCodeList")
+    @RequestMapping("/getIntersectionFromCodeList")
     public Flux<CompanyStatus> getIntersectionFromCodeList(@RequestBody List<String> codeListIds) {
         return userStorage.getIntersectionFromCodeList(codeListIds);
     }
 
-    @RequestMapping("getAllCandlestickType")
+    @RequestMapping("/getAllCandlestickType")
     public Flux<Map<String, String>> getAllCandlestickType() {
         return Flux
                 .fromArray(CandlestickType.values())

@@ -9,6 +9,8 @@ import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
+
 /**
  * Stock計算
  */
@@ -30,9 +32,18 @@ public interface StockCalculator {
      *
      * @param stockDataFlux 需計算的StockDataFlux
      * @param code          股票代號
+     * @param beginDate     開始日期
+     * @param endDate       結束日期
      * @return 計算結果StockMAResult Flux
      */
-    Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, String code);
+    Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, String code, LocalDate beginDate, LocalDate endDate);
 
+    /**
+     * 預先過濾最後一筆資料
+     *
+     * @param stockDataFlux 股價資料flux
+     * @param codeParam     篩選條件
+     * @return 若有通過條件則回傳有有資料
+     */
     Flux<StockData> preFilterLastStockData(Flux<StockData> stockDataFlux, CodeParam codeParam);
 }

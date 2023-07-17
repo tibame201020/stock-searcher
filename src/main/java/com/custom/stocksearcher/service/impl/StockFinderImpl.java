@@ -84,15 +84,12 @@ public class StockFinderImpl implements StockFinder {
      * @return
      */
     private Flux<StockData> findListedStock(CodeParam codeParam) {
-        return Flux.from(companyStatusRepo.findById(codeParam.getCode()))
-                .filter(companyStatus -> !companyStatus.isTPE())
-                .flatMap(companyStatus -> listedStockRepo
-                        .findByListedStockId_CodeAndDateBetweenOrderByDate(
-                                companyStatus.getCode(),
-                                LocalDate.parse(codeParam.getBeginDate()).minusDays(1),
-                                LocalDate.parse(codeParam.getEndDate()).plusDays(1)
-                        ))
-                .map(ListedStock::getStockData);
+        return listedStockRepo
+                .findByListedStockId_CodeAndDateBetweenOrderByDate(
+                        codeParam.getCode(),
+                        LocalDate.parse(codeParam.getBeginDate()),
+                        LocalDate.parse(codeParam.getEndDate()).plusDays(1)
+                ).map(ListedStock::getStockData);
     }
 
 
@@ -103,15 +100,12 @@ public class StockFinderImpl implements StockFinder {
      * @return
      */
     private Flux<StockData> findTPExStock(CodeParam codeParam) {
-        return Flux.from(companyStatusRepo.findById(codeParam.getCode()))
-                .filter(CompanyStatus::isTPE)
-                .filter(companyStatus -> companyStatus.getCode().length() != 6)
-                .flatMap(companyStatus -> tpExStockRepo
-                        .findByTpExStockId_CodeAndDateBetweenOrderByDate(
-                                companyStatus.getCode(),
-                                LocalDate.parse(codeParam.getBeginDate()).minusDays(1),
-                                LocalDate.parse(codeParam.getEndDate()).plusDays(1)
-                        )).map(TPExStock::getStockData);
+        return tpExStockRepo
+                .findByTpExStockId_CodeAndDateBetweenOrderByDate(
+                        codeParam.getCode(),
+                        LocalDate.parse(codeParam.getBeginDate()),
+                        LocalDate.parse(codeParam.getEndDate()).plusDays(1)
+                ).map(TPExStock::getStockData);
     }
 
     /**
