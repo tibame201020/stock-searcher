@@ -16,10 +16,14 @@ import java.util.List;
 
 @Service
 public class UserStorageImpl implements UserStorage {
+    private final CodeListRepo codeListRepo;
+    private final CompanyStatusRepo companyStatusRepo;
+
     @Autowired
-    private CodeListRepo codeListRepo;
-    @Autowired
-    private CompanyStatusRepo companyStatusRepo;
+    public UserStorageImpl(CodeListRepo codeListRepo, CompanyStatusRepo companyStatusRepo) {
+        this.codeListRepo = codeListRepo;
+        this.companyStatusRepo = companyStatusRepo;
+    }
 
     @Override
     public Flux<CodeList> saveCodeList(CodeList codeList) {

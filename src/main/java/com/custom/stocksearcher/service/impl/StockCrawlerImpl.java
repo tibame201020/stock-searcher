@@ -9,19 +9,15 @@ import com.custom.stocksearcher.models.tpex.TPExCompany;
 import com.custom.stocksearcher.models.tpex.TPExStock;
 import com.custom.stocksearcher.models.tpex.TPExStockId;
 import com.custom.stocksearcher.models.tpex.TPExUrlObject;
-import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.netty.http.client.HttpClient;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -33,21 +29,19 @@ import static com.custom.stocksearcher.constant.Constant.TPEx_COMPANY_URL;
 
 @Service
 public class StockCrawlerImpl implements StockCrawler {
+    private final WebClient webClient;
+    private final ListedStockRepo listedStockRepo;
+    private final CompanyStatusRepo companyStatusRepo;
+    private final TPExStockRepo tpExStockRepo;
 
-    WebClient webClient = WebClient.builder()
-            .clientConnector(new ReactorClientHttpConnector(HttpClient.create().followRedirect(true)))
-            .exchangeStrategies(ExchangeStrategies.builder()
-                    .codecs(config -> config.defaultCodecs().maxInMemorySize(1048576 * 100))
-                    .build())
-            .build();
     @Autowired
-    private DateProvider dateProvider;
-    @Autowired
-    private ListedStockRepo listedStockRepo;
-    @Autowired
-    private CompanyStatusRepo companyStatusRepo;
-    @Autowired
-    private TPExStockRepo tpExStockRepo;
+    public StockCrawlerImpl(WebClient webClient, ListedStockRepo listedStockRepo, CompanyStatusRepo companyStatusRepo, TPExStockRepo tpExStockRepo) {
+        this.webClient = webClient;
+        this.listedStockRepo = listedStockRepo;
+        this.companyStatusRepo = companyStatusRepo;
+        this.tpExStockRepo = tpExStockRepo;
+    }
+
 
     @Override
     public Flux<ListedStock> getListedStockDataFromTWSEApi(String url) {

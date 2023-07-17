@@ -8,7 +8,6 @@ import com.custom.stocksearcher.models.listed.ListedStockId;
 import com.custom.stocksearcher.models.tpex.TPExStock;
 import com.custom.stocksearcher.models.tpex.TPExStockId;
 import com.custom.stocksearcher.provider.DateProvider;
-import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
@@ -42,16 +41,18 @@ import static com.custom.stocksearcher.constant.Constant.*;
 @Component
 public class Schedule {
     private final Log log = LogFactory.getLog(this.getClass());
+    private final StockCrawler stockCrawler;
+    private final DateProvider dateProvider;
+    private final TPExStockRepo tpExStockRepo;
+    private final ListedStockRepo listedStockRepo;
+
     @Autowired
-    private StockCrawler stockCrawler;
-    @Autowired
-    private DateProvider dateProvider;
-    @Autowired
-    private CompanyStatusRepo companyStatusRepo;
-    @Autowired
-    private TPExStockRepo tpExStockRepo;
-    @Autowired
-    private ListedStockRepo listedStockRepo;
+    public Schedule(StockCrawler stockCrawler, DateProvider dateProvider, TPExStockRepo tpExStockRepo, ListedStockRepo listedStockRepo) {
+        this.stockCrawler = stockCrawler;
+        this.dateProvider = dateProvider;
+        this.tpExStockRepo = tpExStockRepo;
+        this.listedStockRepo = listedStockRepo;
+    }
 
     /**
      * 爬蟲主程式 (每一小時執行一次)
@@ -64,8 +65,8 @@ public class Schedule {
     public void crawlStockData() throws Exception {
         checkImportListedFile();
         checkImportTPExFile();
-        takeListedStock();
-        takeTPExList();
+//        writeListedToFile();
+//        writeTPEXToFile();
     }
 
     /**
@@ -99,14 +100,11 @@ public class Schedule {
                 .map(codeWithYearMonth -> getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()));
 
         urls.delayElements(Duration.ofMillis(4500))
-                .flatMap(url -> stockCrawler.getListedStockDataFromTWSEApi(url))
+                .flatMap(stockCrawler::getListedStockDataFromTWSEApi)
                 .subscribe(
                         result -> log.info("取得上市股票資料 : " + result.getListedStockId()),
                         err -> log.error(String.format("取得上市股票資料錯誤: %s", err)),
-                        () -> {
-                            log.info("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat());
-//                            writeListedToFile();
-                        }
+                        () -> log.info("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
                 );
 
 
@@ -133,7 +131,7 @@ public class Schedule {
 
         boolean updateDateIsTodayOrYesterday = sysDate.isEqual(updateDate) || sysDate.minusDays(1).isEqual(updateDate);
 
-        if (updateDateIsTodayOrYesterday && (hour <= 15)) {
+        if (updateDateIsTodayOrYesterday && (hour <= 14)) {
             return !stockYearMonth.atEndOfMonth().isEqual(sysYearMonth.atEndOfMonth());
         }
 
@@ -167,14 +165,11 @@ public class Schedule {
                 .flatMap(dateStr -> Mono.just(String.format(TPEx_LIST_URL, dateStr)));
 
         urls.delayElements(Duration.ofMillis(1000))
-                .flatMap(url -> stockCrawler.getTPExStockFromTPEx(url))
+                .flatMap(stockCrawler::getTPExStockFromTPEx)
                 .subscribe(
                         result -> log.info("取得上櫃股票資料 : " + result.getTpExStockId()),
                         err -> log.error(String.format("取得上櫃股票資料錯誤: %s", err)),
-                        () -> {
-                            log.info("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat());
-//                            writeTPEXToFile();
-                        }
+                        () -> log.info("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
                 );
     }
 
@@ -186,6 +181,7 @@ public class Schedule {
         Path path = Paths.get(file);
         boolean exists = Files.exists(path);
         if (!exists) {
+            takeTPExList();
             return;
         }
 
@@ -197,11 +193,14 @@ public class Schedule {
                         str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
                                 .create().fromJson(str, TPExStock.class)))
                 .buffer()
-                .flatMap(tpExStockList -> tpExStockRepo.saveAll(tpExStockList))
+                .flatMap(tpExStockRepo::saveAll)
                 .subscribe(
                         tpExStock -> log.info("save to elasticsearch : " + tpExStock),
                         err -> log.error("error : " + err.getMessage()),
-                        () -> log.info("import tpExStock finish at " + dateProvider.getSystemDateTimeFormat())
+                        () -> {
+                            log.info("import tpExStock finish at " + dateProvider.getSystemDateTimeFormat());
+                            takeTPExList();
+                        }
                 );
     }
 
@@ -213,6 +212,7 @@ public class Schedule {
         Path path = Paths.get(file);
         boolean exists = Files.exists(path);
         if (!exists) {
+            takeListedStock();
             return;
         }
 
@@ -224,11 +224,14 @@ public class Schedule {
                         str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
                                 .create().fromJson(str, ListedStock.class)))
                 .buffer()
-                .flatMap(listedStockList -> listedStockRepo.saveAll(listedStockList))
+                .flatMap(listedStockRepo::saveAll)
                 .subscribe(
                         listedStock -> log.info("save to elasticsearch : " + listedStock),
                         err -> log.error("error : " + err.getMessage()),
-                        () -> log.info("import listedStock finish at " + dateProvider.getSystemDateTimeFormat())
+                        () -> {
+                            log.info("import listedStock finish at " + dateProvider.getSystemDateTimeFormat());
+                            takeListedStock();
+                        }
                 );
     }
 

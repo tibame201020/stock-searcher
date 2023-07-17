@@ -28,14 +28,19 @@ import java.util.Map;
 @RequestMapping("/stocks")
 public class StockController {
     private final Log log = LogFactory.getLog(this.getClass());
+
+    private final StockFinder stockFinder;
+    private final StockCalculator stockCalculator;
+    private final UserStorage userStorage;
+    private final CodeListRepo codeListRepo;
+
     @Autowired
-    private StockFinder stockFinder;
-    @Autowired
-    private StockCalculator stockCalculator;
-    @Autowired
-    private UserStorage userStorage;
-    @Autowired
-    private CodeListRepo codeListRepo;
+    public StockController(StockFinder stockFinder, StockCalculator stockCalculator, UserStorage userStorage, CodeListRepo codeListRepo) {
+        this.stockFinder = stockFinder;
+        this.stockCalculator = stockCalculator;
+        this.userStorage = userStorage;
+        this.codeListRepo = codeListRepo;
+    }
 
     /**
      * 根據條件查詢單一股價

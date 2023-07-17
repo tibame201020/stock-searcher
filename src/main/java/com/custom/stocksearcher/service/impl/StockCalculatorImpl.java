@@ -20,12 +20,14 @@ import java.util.stream.Stream;
 
 @Service
 public class StockCalculatorImpl implements StockCalculator {
+    private final StockCandlestick stockCandlestick;
+    private final CompanyStatusRepo companyStatusRepo;
 
     @Autowired
-    private StockCandlestick stockCandlestick;
-
-    @Autowired
-    private CompanyStatusRepo companyStatusRepo;
+    public StockCalculatorImpl(StockCandlestick stockCandlestick, CompanyStatusRepo companyStatusRepo) {
+        this.stockCandlestick = stockCandlestick;
+        this.companyStatusRepo = companyStatusRepo;
+    }
 
     @Override
     public Mono<StockBumpy> getRangeOfHighAndLowPoint(Flux<StockData> stockDataFlux, CodeParam codeParam) {

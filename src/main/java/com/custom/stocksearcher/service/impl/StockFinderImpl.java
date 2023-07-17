@@ -5,7 +5,6 @@ import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.models.StockData;
 import com.custom.stocksearcher.models.listed.ListedStock;
 import com.custom.stocksearcher.models.tpex.TPExStock;
-import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
@@ -19,15 +18,16 @@ import java.util.Comparator;
 
 @Service
 public class StockFinderImpl implements StockFinder {
+    private final ListedStockRepo listedStockRepo;
+    private final CompanyStatusRepo companyStatusRepo;
+    private final TPExStockRepo tpExStockRepo;
 
     @Autowired
-    private ListedStockRepo listedStockRepo;
-    @Autowired
-    private CompanyStatusRepo companyStatusRepo;
-    @Autowired
-    private TPExStockRepo tpExStockRepo;
-    @Autowired
-    private DateProvider dateProvider;
+    public StockFinderImpl(ListedStockRepo listedStockRepo, CompanyStatusRepo companyStatusRepo, TPExStockRepo tpExStockRepo) {
+        this.listedStockRepo = listedStockRepo;
+        this.companyStatusRepo = companyStatusRepo;
+        this.tpExStockRepo = tpExStockRepo;
+    }
 
 
     @Override
