@@ -7,7 +7,6 @@ import com.custom.stocksearcher.service.StockFinder;
 import com.custom.stocksearcher.service.UserStorage;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,7 +33,6 @@ public class StockController {
     private final UserStorage userStorage;
     private final CodeListRepo codeListRepo;
 
-    @Autowired
     public StockController(StockFinder stockFinder, StockCalculator stockCalculator, UserStorage userStorage, CodeListRepo codeListRepo) {
         this.stockFinder = stockFinder;
         this.stockCalculator = stockCalculator;

@@ -6,7 +6,6 @@ import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.repo.CodeListRepo;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.service.UserStorage;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -19,7 +18,6 @@ public class UserStorageImpl implements UserStorage {
     private final CodeListRepo codeListRepo;
     private final CompanyStatusRepo companyStatusRepo;
 
-    @Autowired
     public UserStorageImpl(CodeListRepo codeListRepo, CompanyStatusRepo companyStatusRepo) {
         this.codeListRepo = codeListRepo;
         this.companyStatusRepo = companyStatusRepo;

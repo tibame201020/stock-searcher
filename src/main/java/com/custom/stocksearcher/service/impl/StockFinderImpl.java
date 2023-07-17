@@ -9,7 +9,6 @@ import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockFinder;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -22,7 +21,6 @@ public class StockFinderImpl implements StockFinder {
     private final CompanyStatusRepo companyStatusRepo;
     private final TPExStockRepo tpExStockRepo;
 
-    @Autowired
     public StockFinderImpl(ListedStockRepo listedStockRepo, CompanyStatusRepo companyStatusRepo, TPExStockRepo tpExStockRepo) {
         this.listedStockRepo = listedStockRepo;
         this.companyStatusRepo = companyStatusRepo;

@@ -4,7 +4,6 @@ import com.custom.stocksearcher.models.*;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.service.StockCalculator;
 import com.custom.stocksearcher.service.StockCandlestick;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -23,7 +22,6 @@ public class StockCalculatorImpl implements StockCalculator {
     private final StockCandlestick stockCandlestick;
     private final CompanyStatusRepo companyStatusRepo;
 
-    @Autowired
     public StockCalculatorImpl(StockCandlestick stockCandlestick, CompanyStatusRepo companyStatusRepo) {
         this.stockCandlestick = stockCandlestick;
         this.companyStatusRepo = companyStatusRepo;

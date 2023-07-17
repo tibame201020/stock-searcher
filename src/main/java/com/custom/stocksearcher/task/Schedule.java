@@ -14,7 +14,6 @@ import com.custom.stocksearcher.service.StockCrawler;
 import com.google.gson.GsonBuilder;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -46,7 +45,6 @@ public class Schedule {
     private final TPExStockRepo tpExStockRepo;
     private final ListedStockRepo listedStockRepo;
 
-    @Autowired
     public Schedule(StockCrawler stockCrawler, DateProvider dateProvider, TPExStockRepo tpExStockRepo, ListedStockRepo listedStockRepo) {
         this.stockCrawler = stockCrawler;
         this.dateProvider = dateProvider;

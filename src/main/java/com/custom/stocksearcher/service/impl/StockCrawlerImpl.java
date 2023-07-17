@@ -13,7 +13,6 @@ import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -34,7 +33,6 @@ public class StockCrawlerImpl implements StockCrawler {
     private final CompanyStatusRepo companyStatusRepo;
     private final TPExStockRepo tpExStockRepo;
 
-    @Autowired
     public StockCrawlerImpl(WebClient webClient, ListedStockRepo listedStockRepo, CompanyStatusRepo companyStatusRepo, TPExStockRepo tpExStockRepo) {
         this.webClient = webClient;
         this.listedStockRepo = listedStockRepo;
