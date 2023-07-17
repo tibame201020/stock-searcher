@@ -124,13 +124,16 @@ public class Schedule {
         LocalDate updateDate = listedStock.getUpdateDate();
         int hour = LocalDateTime.now().getHour();
 
+        YearMonth sysYearMonth = YearMonth.from(sysDate);
+        YearMonth stockYearMonth = YearMonth.from(date);
+
         if (sysDate.isEqual(date)) {
             return false;
         }
 
-        if (sysDate.isEqual(updateDate) && (hour < 15)) {
-            YearMonth sysYearMonth = YearMonth.from(sysDate);
-            YearMonth stockYearMonth = YearMonth.from(date);
+        boolean updateDateIsTodayOrYesterday = sysDate.isEqual(updateDate) || sysDate.minusDays(1).isEqual(updateDate);
+
+        if (updateDateIsTodayOrYesterday && (hour <= 15)) {
             return !stockYearMonth.atEndOfMonth().isEqual(sysYearMonth.atEndOfMonth());
         }
 
