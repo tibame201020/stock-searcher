@@ -34,6 +34,9 @@ public class Constant {
      */
     public static final String STOCK_CRAWLER_BEGIN = "2022-06-01";
 
+    /**
+     * K棒判斷常數
+     */
     public static final String CandlestickType_BLACK = "BLACK";
     public static final String CandlestickType_RED = "RED";
     public static final String CandlestickType_GREEN = "GREEN";
@@ -44,5 +47,17 @@ public class Constant {
     public static final String CROSS = "Cross";
     public static final String CROSS_UP = "CrossUp";
     public static final String CROSS_DOWN = "CrossDown";
+
+    /**
+     * 上市股票爬蟲參數
+     */
+    public static final long LISTED_CRAWL_DURATION_MILLS = 3000;
+    public static final int LISTED_CRAWL_UPDATE_HOUR = 14;
+    public static final String LISTED_DATA_FILE_NAME = "stocksListed";
+    /**
+     * 上櫃股票爬蟲參數
+     */
+    public static final long TPEX_CRAWL_DURATION_MILLS = 1000;
+    public static final String TPEX_DATA_FILE_NAME = "stocksTPEX";
 
 }

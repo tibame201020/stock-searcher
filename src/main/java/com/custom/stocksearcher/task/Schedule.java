@@ -97,7 +97,7 @@ public class Schedule {
                 .sort(Comparator.comparing(CodeWithYearMonth::getCode))
                 .map(codeWithYearMonth -> getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()));
 
-        urls.delayElements(Duration.ofMillis(4500))
+        urls.delayElements(Duration.ofMillis(LISTED_CRAWL_DURATION_MILLS))
                 .flatMap(stockCrawler::getListedStockDataFromTWSEApi)
                 .subscribe(
                         result -> log.info("取得上市股票資料 : " + result.getListedStockId()),
@@ -116,20 +116,24 @@ public class Schedule {
      */
     private boolean filterListedStock(ListedStock listedStock) {
         LocalDate sysDate = LocalDate.now();
-        LocalDate date = listedStock.getDate();
+        LocalDate stockDate = listedStock.getDate();
         LocalDate updateDate = listedStock.getUpdateDate();
         int hour = LocalDateTime.now().getHour();
 
         YearMonth sysYearMonth = YearMonth.from(sysDate);
-        YearMonth stockYearMonth = YearMonth.from(date);
+        YearMonth stockYearMonth = YearMonth.from(stockDate);
 
-        if (sysDate.isEqual(date)) {
+        if (sysDate.isEqual(stockDate)) {
             return false;
         }
 
-        boolean updateDateIsTodayOrYesterday = sysDate.isEqual(updateDate) || sysDate.minusDays(1).isEqual(updateDate);
+        if (sysDate.minusDays(1).isEqual(updateDate)
+                && sysDate.minusDays(1).isEqual(stockDate)
+                && (hour <= LISTED_CRAWL_UPDATE_HOUR)) {
+            return !stockYearMonth.atEndOfMonth().isEqual(sysYearMonth.atEndOfMonth());
+        }
 
-        if (updateDateIsTodayOrYesterday && (hour <= 14)) {
+        if (sysDate.isEqual(updateDate) && (hour <= LISTED_CRAWL_UPDATE_HOUR)) {
             return !stockYearMonth.atEndOfMonth().isEqual(sysYearMonth.atEndOfMonth());
         }
 
@@ -162,7 +166,7 @@ public class Schedule {
                 .flatMap(date -> Mono.just(date.toString().replaceAll("-", "/")))
                 .flatMap(dateStr -> Mono.just(String.format(TPEx_LIST_URL, dateStr)));
 
-        urls.delayElements(Duration.ofMillis(1000))
+        urls.delayElements(Duration.ofMillis(TPEX_CRAWL_DURATION_MILLS))
                 .flatMap(stockCrawler::getTPExStockFromTPEx)
                 .subscribe(
                         result -> log.info("取得上櫃股票資料 : " + result.getTpExStockId()),
@@ -175,8 +179,7 @@ public class Schedule {
      * 上櫃股價資料匯入
      */
     private void checkImportTPExFile() throws IOException {
-        String file = "stocksTPEX";
-        Path path = Paths.get(file);
+        Path path = Paths.get(TPEX_DATA_FILE_NAME);
         boolean exists = Files.exists(path);
         if (!exists) {
             takeTPExList();
@@ -206,8 +209,7 @@ public class Schedule {
      * 上市股價資料匯入
      */
     private void checkImportListedFile() throws IOException {
-        String file = "stocksListed";
-        Path path = Paths.get(file);
+        Path path = Paths.get(LISTED_DATA_FILE_NAME);
         boolean exists = Files.exists(path);
         if (!exists) {
             takeListedStock();
@@ -237,14 +239,13 @@ public class Schedule {
      * 上櫃股價資料匯出
      */
     private void writeTPEXToFile() {
-        String file = "stocksTPEX";
         Flux<TPExStock> tpExStockRepoAll = tpExStockRepo.findAll();
         Flux<String> dataFlux = tpExStockRepoAll
                 .flatMap(tpExStock -> Flux.just(
                         new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
                                 .create()
                                 .toJson(tpExStock)));
-        Path path = Paths.get(file);
+        Path path = Paths.get(TPEX_DATA_FILE_NAME);
         writeFile(dataFlux, path).subscribe();
     }
 
@@ -252,14 +253,13 @@ public class Schedule {
      * 上市股價資料匯出
      */
     private void writeListedToFile() {
-        String file = "stocksListed";
         Flux<ListedStock> stockMonthDataFlux = listedStockRepo.findAll();
         Flux<String> dataFlux = stockMonthDataFlux
                 .flatMap(listedStock -> Flux.just(
                         new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
                                 .create()
                                 .toJson(listedStock)));
-        Path path = Paths.get(file);
+        Path path = Paths.get(LISTED_DATA_FILE_NAME);
         writeFile(dataFlux, path).subscribe();
     }
 
