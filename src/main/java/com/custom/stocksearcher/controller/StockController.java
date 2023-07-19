@@ -80,32 +80,38 @@ public class StockController {
                     stockMAParam.setCode(codeParam.getCode());
                     stockMAParam.setBeginDate(stockBumpy.getEndDate());
                     stockMAParam.setEndDate(stockBumpy.getEndDate());
-                    return getStockMa(stockMAParam).last().flatMap(stockMAResult -> {
-                        BigDecimal price = stockMAResult.getPrice();
-                        BigDecimal ma5 = stockMAResult.getMa5();
-                        BigDecimal ma10 = stockMAResult.getMa10();
-                        BigDecimal ma20 = stockMAResult.getMa20();
-                        BigDecimal ma60 = stockMAResult.getMa60();
-                        BigDecimal ma = BigDecimal.valueOf(-1);
+                    return getStockMa(stockMAParam).last(new StockMAResult())
+                            .filter(stockMAResult -> null != stockMAResult.getPrice())
+                            .flatMap(stockMAResult -> {
+                                BigDecimal price = stockMAResult.getPrice();
+                                BigDecimal ma5 = stockMAResult.getMa5();
+                                BigDecimal ma10 = stockMAResult.getMa10();
+                                BigDecimal ma20 = stockMAResult.getMa20();
+                                BigDecimal ma60 = stockMAResult.getMa60();
+                                BigDecimal ma = BigDecimal.valueOf(-1);
 
-                        switch (codeParam.getClosingPriceCompareTarget()) {
-                            case "MA5" ->
-                                    ma = ma5 != null ? ma5 : BigDecimal.ZERO;
-                            case "MA10" ->
-                                    ma = ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
-                            case "MA20" ->
-                                    ma = ma20 != null ? ma20 : ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
-                            case "MA60" ->
-                                    ma = ma60 != null ? ma60 : ma20 != null ? ma20 : ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
-                        }
+                                switch (codeParam.getClosingPriceCompareTarget()) {
+                                    case "none" -> {
+                                        stockBumpy.setLastStockMA(stockMAResult);
+                                        return Mono.just(stockBumpy);
+                                    }
+                                    case "MA5" ->
+                                            ma = ma5 != null ? ma5 : BigDecimal.ZERO;
+                                    case "MA10" ->
+                                            ma = ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
+                                    case "MA20" ->
+                                            ma = ma20 != null ? ma20 : ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
+                                    case "MA60" ->
+                                            ma = ma60 != null ? ma60 : ma20 != null ? ma20 : ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
+                                }
 
-                        if (price.compareTo(ma) >= 0) {
-                            stockBumpy.setLastStockMA(stockMAResult);
-                            return Mono.just(stockBumpy);
-                        } else {
-                            return Mono.empty();
-                        }
-                    });
+                                if (price.compareTo(ma) >= 0) {
+                                    stockBumpy.setLastStockMA(stockMAResult);
+                                    return Mono.just(stockBumpy);
+                                } else {
+                                    return Mono.empty();
+                                }
+                            });
                 });
     }
 
@@ -146,7 +152,7 @@ public class StockController {
     public Flux<StockMAResult> getStockMa(@RequestBody CodeParam codeParam) {
         LocalDate beginDate = LocalDate.parse(codeParam.getBeginDate()).minusDays(1);
         LocalDate endDate = LocalDate.parse(codeParam.getEndDate()).plusDays(1);
-        codeParam.setBeginDate(beginDate.minusMonths(5).toString());
+        codeParam.setBeginDate(beginDate.minusMonths(6).toString());
 
         return stockCalculator.getStockMa(findStockInfo(codeParam), codeParam.getCode(), beginDate, endDate);
     }

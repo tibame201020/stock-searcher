@@ -1,6 +1,5 @@
 package com.custom.stocksearcher.task;
 
-import com.custom.stocksearcher.config.LocalDateTypeAdapter;
 import com.custom.stocksearcher.models.CodeWithYearMonth;
 import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.models.listed.ListedStock;
@@ -11,7 +10,7 @@ import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
-import com.google.gson.GsonBuilder;
+import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -44,12 +43,14 @@ public class Schedule {
     private final DateProvider dateProvider;
     private final TPExStockRepo tpExStockRepo;
     private final ListedStockRepo listedStockRepo;
+    private final Gson gson;
 
-    public Schedule(StockCrawler stockCrawler, DateProvider dateProvider, TPExStockRepo tpExStockRepo, ListedStockRepo listedStockRepo) {
+    public Schedule(StockCrawler stockCrawler, DateProvider dateProvider, TPExStockRepo tpExStockRepo, ListedStockRepo listedStockRepo, Gson gson) {
         this.stockCrawler = stockCrawler;
         this.dateProvider = dateProvider;
         this.tpExStockRepo = tpExStockRepo;
         this.listedStockRepo = listedStockRepo;
+        this.gson = gson;
     }
 
     /**
@@ -191,8 +192,7 @@ public class Schedule {
 
         Flux.fromArray(strArray)
                 .flatMap(
-                        str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
-                                .create().fromJson(str, TPExStock.class)))
+                        str -> Mono.just(gson.fromJson(str, TPExStock.class)))
                 .buffer()
                 .flatMap(tpExStockRepo::saveAll)
                 .subscribe(
@@ -221,8 +221,7 @@ public class Schedule {
 
         Flux.fromArray(strArray)
                 .flatMap(
-                        str -> Mono.just(new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
-                                .create().fromJson(str, ListedStock.class)))
+                        str -> Mono.just(gson.fromJson(str, ListedStock.class)))
                 .buffer()
                 .flatMap(listedStockRepo::saveAll)
                 .subscribe(
@@ -241,10 +240,7 @@ public class Schedule {
     private void writeTPEXToFile() {
         Flux<TPExStock> tpExStockRepoAll = tpExStockRepo.findAll();
         Flux<String> dataFlux = tpExStockRepoAll
-                .flatMap(tpExStock -> Flux.just(
-                        new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
-                                .create()
-                                .toJson(tpExStock)));
+                .flatMap(tpExStock -> Flux.just(gson.toJson(tpExStock)));
         Path path = Paths.get(TPEX_DATA_FILE_NAME);
         writeFile(dataFlux, path).subscribe();
     }
@@ -255,10 +251,7 @@ public class Schedule {
     private void writeListedToFile() {
         Flux<ListedStock> stockMonthDataFlux = listedStockRepo.findAll();
         Flux<String> dataFlux = stockMonthDataFlux
-                .flatMap(listedStock -> Flux.just(
-                        new GsonBuilder().registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
-                                .create()
-                                .toJson(listedStock)));
+                .flatMap(listedStock -> Flux.just(gson.toJson(listedStock)));
         Path path = Paths.get(LISTED_DATA_FILE_NAME);
         writeFile(dataFlux, path).subscribe();
     }
