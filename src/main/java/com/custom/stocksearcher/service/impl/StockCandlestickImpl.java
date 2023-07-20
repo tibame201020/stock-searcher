@@ -36,7 +36,7 @@ public class StockCandlestickImpl implements StockCandlestick {
             case CandlestickType_GREEN -> candlestickType = greenCharge(bodyLine, upperShadowLine, lowerShadowLine);
         }
 
-        if ("未定義型態".equalsIgnoreCase(candlestickType.getName())) {
+        if (CandlestickType.UnknownType.getName().equalsIgnoreCase(candlestickType.getName())) {
             log.info("candlestickType = " + candlestickType.getName());
         }
 
@@ -60,14 +60,12 @@ public class StockCandlestickImpl implements StockCandlestick {
     }
 
     private CandlestickType redCharge(BigDecimal bodyLine, BigDecimal upperShadowLine, BigDecimal lowerShadowLine) {
-        BigDecimal hammerLimit = BigDecimal.valueOf(1.2);
-        BigDecimal CylinderLimit = BigDecimal.valueOf(0.2);
         BigDecimal bodyShadowRatio = upperShadowLine.max(lowerShadowLine).divide(bodyLine, 4, RoundingMode.FLOOR);
 
         boolean isShadowLineSameLong = upperShadowLine.compareTo(lowerShadowLine) == 0;
         boolean isUpperShadowLineLong = upperShadowLine.compareTo(lowerShadowLine) > 0;
-        boolean isHammer = bodyShadowRatio.compareTo(hammerLimit) > 0;
-        boolean isCylinder = bodyShadowRatio.compareTo(CylinderLimit) > 0;
+        boolean isHammer = bodyShadowRatio.compareTo(HAMMER_LIMIT) > 0;
+        boolean isCylinder = bodyShadowRatio.compareTo(CYLINDER_LIMIT) > 0;
 
         if (isHammer) {
             if (isShadowLineSameLong) {
@@ -91,14 +89,12 @@ public class StockCandlestickImpl implements StockCandlestick {
     }
 
     private CandlestickType greenCharge(BigDecimal bodyLine, BigDecimal upperShadowLine, BigDecimal lowerShadowLine) {
-        BigDecimal hammerLimit = BigDecimal.valueOf(1.2);
-        BigDecimal CylinderLimit = BigDecimal.valueOf(0.2);
         BigDecimal bodyShadowRatio = upperShadowLine.max(lowerShadowLine).divide(bodyLine, 4, RoundingMode.FLOOR);
 
         boolean isShadowLineSameLong = upperShadowLine.compareTo(lowerShadowLine) == 0;
         boolean isUpperShadowLineLong = upperShadowLine.compareTo(lowerShadowLine) > 0;
-        boolean isHammer = bodyShadowRatio.compareTo(hammerLimit) > 0;
-        boolean isCylinder = bodyShadowRatio.compareTo(CylinderLimit) > 0;
+        boolean isHammer = bodyShadowRatio.compareTo(HAMMER_LIMIT) > 0;
+        boolean isCylinder = bodyShadowRatio.compareTo(CYLINDER_LIMIT) > 0;
 
         if (isHammer) {
             if (isShadowLineSameLong) {

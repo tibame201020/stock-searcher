@@ -43,7 +43,7 @@ public interface UserStorage {
      * 取得篩選範圍
      *
      * @param key            keyword
-     * @param without4upCode without4upCode
+     * @param without4upCode 排除stock code四碼以上
      * @return Flux<CompanyStatus>
      */
     Flux<CompanyStatus> getCodeRange(String key, boolean without4upCode);

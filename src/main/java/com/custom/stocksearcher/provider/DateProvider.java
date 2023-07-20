@@ -47,4 +47,12 @@ public class DateProvider {
         return now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 
+    public LocalDate strToLocalDate(String dateStr, String format) {
+        return LocalDate.parse(dateStr, DateTimeFormatter.ofPattern(format));
+    }
+
+    public String localDateToString(LocalDate localDate, String format) {
+        return localDate.format(DateTimeFormatter.ofPattern(format));
+    }
+
 }

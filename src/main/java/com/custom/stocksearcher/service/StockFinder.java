@@ -22,13 +22,19 @@ public interface StockFinder {
     Flux<StockData> findStockInfo(CodeParam codeParam);
 
     /**
-     * 根據關鍵字查找company list
+     * 根據關鍵字查找company
      *
-     * @param keyword
-     * @return
+     * @param keyword 關鍵字
+     * @return Flux<CompanyStatus>
      */
     Flux<CompanyStatus> findCompaniesByKeyWord(String keyword);
 
+    /**
+     * 根據條件查找股價資料(以日K棒數為主)
+     *
+     * @param codeParam 查詢條件bean
+     * @return Flux<StockData>
+     */
     Flux<StockData> getStockDataWithKlineCnt(CodeParam codeParam);
 
 }

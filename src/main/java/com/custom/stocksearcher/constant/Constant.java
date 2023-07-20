@@ -1,5 +1,7 @@
 package com.custom.stocksearcher.constant;
 
+import java.math.BigDecimal;
+
 /**
  * 常數
  */
@@ -34,6 +36,8 @@ public class Constant {
      */
     public static final String STOCK_CRAWLER_BEGIN = "2022-06-01";
 
+    public static final String STOCK_DATE_FORMAT = "yyyy/MM/dd";
+
     /**
      * K棒判斷常數
      */
@@ -59,5 +63,11 @@ public class Constant {
      */
     public static final long TPEX_CRAWL_DURATION_MILLS = 1000;
     public static final String TPEX_DATA_FILE_NAME = "stocksTPEX";
+
+    /**
+     * K棒判斷參數
+     */
+    public static final BigDecimal HAMMER_LIMIT = BigDecimal.valueOf(1.2);
+    public static final BigDecimal CYLINDER_LIMIT = BigDecimal.valueOf(0.2);
 
 }

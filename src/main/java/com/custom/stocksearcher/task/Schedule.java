@@ -164,7 +164,7 @@ public class Schedule {
                         Flux.range(1, yearMonth.lengthOfMonth()).map(yearMonth::atDay))
                 .filter(date -> date.isBefore(LocalDate.now().plusDays(1)))
                 .sort()
-                .flatMap(date -> Mono.just(date.toString().replaceAll("-", "/")))
+                .flatMap(date -> Mono.just(dateProvider.localDateToString(date, STOCK_DATE_FORMAT)))
                 .flatMap(dateStr -> Mono.just(String.format(TPEx_LIST_URL, dateStr)));
 
         urls.delayElements(Duration.ofMillis(TPEX_CRAWL_DURATION_MILLS))

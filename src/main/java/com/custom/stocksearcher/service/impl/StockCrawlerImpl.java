@@ -9,6 +9,7 @@ import com.custom.stocksearcher.models.tpex.TPExCompany;
 import com.custom.stocksearcher.models.tpex.TPExStock;
 import com.custom.stocksearcher.models.tpex.TPExStockId;
 import com.custom.stocksearcher.models.tpex.TPExUrlObject;
+import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
@@ -23,8 +24,7 @@ import java.net.URI;
 import java.time.LocalDate;
 import java.util.Objects;
 
-import static com.custom.stocksearcher.constant.Constant.COMPANY_URL;
-import static com.custom.stocksearcher.constant.Constant.TPEx_COMPANY_URL;
+import static com.custom.stocksearcher.constant.Constant.*;
 
 @Service
 public class StockCrawlerImpl implements StockCrawler {
@@ -32,12 +32,14 @@ public class StockCrawlerImpl implements StockCrawler {
     private final ListedStockRepo listedStockRepo;
     private final CompanyStatusRepo companyStatusRepo;
     private final TPExStockRepo tpExStockRepo;
+    private final DateProvider dateProvider;
 
-    public StockCrawlerImpl(WebClient webClient, ListedStockRepo listedStockRepo, CompanyStatusRepo companyStatusRepo, TPExStockRepo tpExStockRepo) {
+    public StockCrawlerImpl(WebClient webClient, ListedStockRepo listedStockRepo, CompanyStatusRepo companyStatusRepo, TPExStockRepo tpExStockRepo, DateProvider dateProvider) {
         this.webClient = webClient;
         this.listedStockRepo = listedStockRepo;
         this.companyStatusRepo = companyStatusRepo;
         this.tpExStockRepo = tpExStockRepo;
+        this.dateProvider = dateProvider;
     }
 
 
@@ -124,7 +126,7 @@ public class StockCrawlerImpl implements StockCrawler {
      * @return TPExStock
      */
     private TPExStock wrapperFromData(String[] data, String date) {
-        LocalDate stockDate = LocalDate.parse(date.replaceAll("/", "-"));
+        LocalDate stockDate = dateProvider.strToLocalDate(date, STOCK_DATE_FORMAT);
 
         TPExStockId tpExStockId = new TPExStockId();
         tpExStockId.setCode(data[0]);
@@ -158,7 +160,8 @@ public class StockCrawlerImpl implements StockCrawler {
      */
     private StockData wrapperFromData(String[] dataInfo) {
         StockData stockData = new StockData();
-        stockData.setDate(LocalDate.parse(dataInfo[0].replace("/", "-")));
+        LocalDate date = dateProvider.strToLocalDate(dataInfo[0], STOCK_DATE_FORMAT);
+        stockData.setDate(date);
         stockData.setTradeVolume(transBigDecimal(dataInfo[1]));
         stockData.setTradeValue(transBigDecimal(dataInfo[2]));
         stockData.setOpeningPrice(transBigDecimal(dataInfo[3]));
