@@ -12,6 +12,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class UserStorageImpl implements UserStorage {
@@ -27,7 +28,7 @@ public class UserStorageImpl implements UserStorage {
     public Flux<CodeList> saveCodeList(CodeList codeList) {
         return Flux.fromIterable(codeList.getCodes())
                 .flatMap(companyStatus -> {
-                    if (null == companyStatus.getName() || companyStatus.getName().isEmpty()) {
+                    if (Objects.isNull(companyStatus.getName()) || companyStatus.getName().isEmpty()) {
                         return companyStatusRepo.findById(companyStatus.getCode());
                     } else {
                         return Mono.just(companyStatus);

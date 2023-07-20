@@ -16,6 +16,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
 import java.time.LocalDate;
+import java.util.Objects;
 
 @SpringBootApplication
 @EnableScheduling
@@ -48,7 +49,7 @@ public class StockSearcherApplication {
     @Bean
     public RestClient createElasticsearchClient() {
         String es_host = System.getenv("ES_HOST");
-        if (null == es_host || es_host.isEmpty()) {
+        if (Objects.isNull(es_host) || es_host.isEmpty()) {
             es_host = "localhost";
         }
         HttpHost host = new HttpHost(es_host, 9200);

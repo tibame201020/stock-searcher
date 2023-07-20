@@ -13,5 +13,5 @@ import java.time.LocalDate;
 public interface TPExStockRepo extends ReactiveElasticsearchRepository<TPExStock, TPExStockId> {
     Flux<TPExStock> findByTpExStockId_CodeAndDateBetweenOrderByDate(String code, LocalDate begin, LocalDate end);
 
-    Mono<TPExStock> findFirstByOrderByDateDescUpdateDateDesc();
+    Mono<TPExStock> findFirstByOrderByDateDesc();
 }

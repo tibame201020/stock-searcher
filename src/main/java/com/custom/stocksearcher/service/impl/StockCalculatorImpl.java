@@ -345,7 +345,7 @@ public class StockCalculatorImpl implements StockCalculator {
         BigDecimal sum = BigDecimal.ZERO;
         for (int i = window.size() - period; i < window.size(); i++) {
             BigDecimal closingPrice = window.get(i).getClosingPrice();
-            if (null == closingPrice) {
+            if (Objects.isNull(closingPrice)) {
                 closingPrice = BigDecimal.ZERO;
             }
             sum = sum.add(closingPrice);

@@ -30,6 +30,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 import static com.custom.stocksearcher.constant.Constant.*;
 
@@ -88,7 +89,7 @@ public class Schedule {
                                     return Mono.just(listedStock);
                                 })))
                 .filter(listedStock -> {
-                    if (null == listedStock.getUpdateDate()) {
+                    if (Objects.isNull(listedStock.getUpdateDate())) {
                         return true;
                     } else {
                         return filterListedStock(listedStock);
@@ -154,18 +155,19 @@ public class Schedule {
             return Mono.just(tpExStock);
         });
 
-        Mono<TPExStock> tpExStockMono = tpExStockRepo.findFirstByOrderByDateDescUpdateDateDesc()
+        Mono<TPExStock> tpExStockMono = tpExStockRepo.findFirstByOrderByDateDesc()
                 .switchIfEmpty(defaultTpExStockMono);
 
         Flux<String> urls = Flux.from(tpExStockMono)
-                .flatMap(tpExStock -> Mono.just(tpExStock.getTpExStockId().getDate().minusDays(1)))
+                .filter(this::filterTPExStock)
+                .map(tpExStock -> tpExStock.getTpExStockId().getDate().minusDays(1))
                 .flatMap(beginDate -> Flux.fromIterable(dateProvider.calculateMonthList(beginDate, LocalDate.now())))
                 .flatMap(yearMonth ->
                         Flux.range(1, yearMonth.lengthOfMonth()).map(yearMonth::atDay))
                 .filter(date -> date.isBefore(LocalDate.now().plusDays(1)))
                 .sort()
-                .flatMap(date -> Mono.just(dateProvider.localDateToString(date, STOCK_DATE_FORMAT)))
-                .flatMap(dateStr -> Mono.just(String.format(TPEx_LIST_URL, dateStr)));
+                .map(date -> dateProvider.localDateToString(date, STOCK_DATE_FORMAT))
+                .map(dateStr -> String.format(TPEx_LIST_URL, dateStr));
 
         urls.delayElements(Duration.ofMillis(TPEX_CRAWL_DURATION_MILLS))
                 .flatMap(stockCrawler::getTPExStockFromTPEx)
@@ -174,6 +176,19 @@ public class Schedule {
                         err -> log.error(String.format("取得上櫃股票資料錯誤: %s", err)),
                         () -> log.info("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
                 );
+    }
+
+    private boolean filterTPExStock(TPExStock tpExStock) {
+        LocalDate sysDate = LocalDate.now();
+        LocalDate stockDate = tpExStock.getDate();
+        LocalDate updateDate = tpExStock.getUpdateDate();
+        int hour = LocalDateTime.now().getHour();
+
+        if (sysDate.isEqual(stockDate)) {
+            return false;
+        }
+
+        return !sysDate.isEqual(updateDate) || (hour > LISTED_CRAWL_UPDATE_HOUR);
     }
 
     /**

@@ -14,6 +14,7 @@ import reactor.core.publisher.Flux;
 
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.Objects;
 
 @Service
 public class StockFinderImpl implements StockFinder {
@@ -43,7 +44,7 @@ public class StockFinderImpl implements StockFinder {
 
     @Override
     public Flux<CompanyStatus> findCompaniesByKeyWord(String keyword) {
-        if (null == keyword || keyword.length() < 2) {
+        if (Objects.isNull(keyword) || keyword.length() < 2) {
             return Flux.empty();
         }
         return companyStatusRepo
