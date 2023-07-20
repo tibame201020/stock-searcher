@@ -159,7 +159,13 @@ public class Schedule {
                 .switchIfEmpty(defaultTpExStockMono);
 
         Flux<String> urls = Flux.from(tpExStockMono)
-                .filter(this::filterTPExStock)
+                .filter(tpExStock -> {
+                    if (Objects.isNull(tpExStock.getUpdateDate())) {
+                        return true;
+                    } else {
+                        return filterTPExStock(tpExStock);
+                    }
+                })
                 .map(tpExStock -> tpExStock.getTpExStockId().getDate().minusDays(1))
                 .flatMap(beginDate -> Flux.fromIterable(dateProvider.calculateMonthList(beginDate, LocalDate.now())))
                 .flatMap(yearMonth ->
