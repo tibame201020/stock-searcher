@@ -2,6 +2,7 @@ package com.custom.stocksearcher.service.impl;
 
 import com.custom.stocksearcher.models.*;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
+import com.custom.stocksearcher.service.SSEService;
 import com.custom.stocksearcher.service.StockCalculator;
 import com.custom.stocksearcher.service.StockCandlestick;
 import org.springframework.stereotype.Service;
@@ -21,10 +22,12 @@ import java.util.stream.Stream;
 public class StockCalculatorImpl implements StockCalculator {
     private final StockCandlestick stockCandlestick;
     private final CompanyStatusRepo companyStatusRepo;
+    private final SSEService sseService;
 
-    public StockCalculatorImpl(StockCandlestick stockCandlestick, CompanyStatusRepo companyStatusRepo) {
+    public StockCalculatorImpl(StockCandlestick stockCandlestick, CompanyStatusRepo companyStatusRepo, SSEService sseService) {
         this.stockCandlestick = stockCandlestick;
         this.companyStatusRepo = companyStatusRepo;
+        this.sseService = sseService;
     }
 
     @Override
@@ -68,7 +71,7 @@ public class StockCalculatorImpl implements StockCalculator {
                             .append("最低成交量: ").append(stockBumpy.getLowestTradeVolume()).append("\n")
                             .append("計算結果: ").append(stockBumpy.getCalcResult()).append("\n")
                             .append("===============================================");
-                    log.info(stringBuilder);
+                    sseService.pushLog(stringBuilder.toString(), log);
 
                     return Mono.just(stockBumpy);
                 }).flatMap(stockBumpy ->

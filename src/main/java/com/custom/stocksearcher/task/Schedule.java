@@ -9,6 +9,7 @@ import com.custom.stocksearcher.models.tpex.TPExStockId;
 import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
+import com.custom.stocksearcher.service.SSEService;
 import com.custom.stocksearcher.service.StockCrawler;
 import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
@@ -45,13 +46,15 @@ public class Schedule {
     private final TPExStockRepo tpExStockRepo;
     private final ListedStockRepo listedStockRepo;
     private final Gson gson;
+    private final SSEService sseService;
 
-    public Schedule(StockCrawler stockCrawler, DateProvider dateProvider, TPExStockRepo tpExStockRepo, ListedStockRepo listedStockRepo, Gson gson) {
+    public Schedule(StockCrawler stockCrawler, DateProvider dateProvider, TPExStockRepo tpExStockRepo, ListedStockRepo listedStockRepo, Gson gson, SSEService sseService) {
         this.stockCrawler = stockCrawler;
         this.dateProvider = dateProvider;
         this.tpExStockRepo = tpExStockRepo;
         this.listedStockRepo = listedStockRepo;
         this.gson = gson;
+        this.sseService = sseService;
     }
 
     /**
@@ -102,9 +105,9 @@ public class Schedule {
         urls.delayElements(Duration.ofMillis(LISTED_CRAWL_DURATION_MILLS))
                 .flatMap(stockCrawler::getListedStockDataFromTWSEApi)
                 .subscribe(
-                        result -> log.info("取得上市股票資料 : " + result.getListedStockId()),
+                        result -> sseService.pushLog("取得上市股票資料 : " + result.getListedStockId(), log),
                         err -> log.error(String.format("取得上市股票資料錯誤: %s", err)),
-                        () -> log.info("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
+                        () -> sseService.pushLog("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat(), log)
                 );
 
 
@@ -178,9 +181,9 @@ public class Schedule {
         urls.delayElements(Duration.ofMillis(TPEX_CRAWL_DURATION_MILLS))
                 .flatMap(stockCrawler::getTPExStockFromTPEx)
                 .subscribe(
-                        result -> log.info("取得上櫃股票資料 : " + result.getTpExStockId()),
+                        result -> sseService.pushLog("取得上櫃股票資料 : " + result.getTpExStockId(), log),
                         err -> log.error(String.format("取得上櫃股票資料錯誤: %s", err)),
-                        () -> log.info("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
+                        () -> sseService.pushLog("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat(), log)
                 );
     }
 
@@ -217,10 +220,10 @@ public class Schedule {
                 .buffer()
                 .flatMap(tpExStockRepo::saveAll)
                 .subscribe(
-                        tpExStock -> log.info("save to elasticsearch : " + tpExStock),
+                        tpExStock -> sseService.pushLog("save to elasticsearch : " + tpExStock, log),
                         err -> log.error("error : " + err.getMessage()),
                         () -> {
-                            log.info("import tpExStock finish at " + dateProvider.getSystemDateTimeFormat());
+                            sseService.pushLog("import tpExStock finish at " + dateProvider.getSystemDateTimeFormat(), log);
                             takeTPExList();
                         }
                 );
@@ -246,10 +249,10 @@ public class Schedule {
                 .buffer()
                 .flatMap(listedStockRepo::saveAll)
                 .subscribe(
-                        listedStock -> log.info("save to elasticsearch : " + listedStock),
+                        listedStock -> sseService.pushLog("save to elasticsearch : " + listedStock, log),
                         err -> log.error("error : " + err.getMessage()),
                         () -> {
-                            log.info("import listedStock finish at " + dateProvider.getSystemDateTimeFormat());
+                            sseService.pushLog("import listedStock finish at " + dateProvider.getSystemDateTimeFormat(), log);
                             takeListedStock();
                         }
                 );
@@ -316,7 +319,7 @@ public class Schedule {
      */
     public Flux<CompanyStatus> getCompaniesData() {
         return Flux.defer(() -> {
-            log.info("update companies list");
+            sseService.pushLog("update companies list", log);
             return stockCrawler.getCompanies();
         });
     }
