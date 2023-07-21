@@ -105,7 +105,7 @@ public class Schedule {
         urls.delayElements(Duration.ofMillis(LISTED_CRAWL_DURATION_MILLS))
                 .flatMap(stockCrawler::getListedStockDataFromTWSEApi)
                 .subscribe(
-                        result -> sseService.pushLog("取得上市股票資料 : " + result.getListedStockId(), log),
+                        result -> sseService.pushLog(String.format("取得上市股票資料 : %s, %s", result.getListedStockId().getCode(), result.getListedStockId().getDate()), log),
                         err -> log.error(String.format("取得上市股票資料錯誤: %s", err)),
                         () -> sseService.pushLog("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat(), log)
                 );
@@ -181,7 +181,7 @@ public class Schedule {
         urls.delayElements(Duration.ofMillis(TPEX_CRAWL_DURATION_MILLS))
                 .flatMap(stockCrawler::getTPExStockFromTPEx)
                 .subscribe(
-                        result -> sseService.pushLog("取得上櫃股票資料 : " + result.getTpExStockId(), log),
+                        result -> sseService.pushLog(String.format("取得上櫃股票資料 : %s, %s", result.getTpExStockId().getCode(), result.getTpExStockId().getDate()), log),
                         err -> log.error(String.format("取得上櫃股票資料錯誤: %s", err)),
                         () -> sseService.pushLog("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat(), log)
                 );
