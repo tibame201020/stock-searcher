@@ -52,6 +52,7 @@ public class StockCrawlerImpl implements StockCrawler {
                 .uri(url)
                 .retrieve()
                 .bodyToFlux(StockBasicInfo.class)
+                .limitRate(WEBCLIENT_LIMIT_RATE)
                 .filter(stockBasicInfo -> Objects.nonNull(stockBasicInfo) && Objects.nonNull(stockBasicInfo.getData()))
                 .flatMap(stockBasicInfo -> Flux.fromArray(stockBasicInfo.getData()))
                 .map(this::wrapperFromData)
@@ -77,13 +78,15 @@ public class StockCrawlerImpl implements StockCrawler {
                 .get()
                 .uri(TPEx_COMPANY_URL)
                 .retrieve()
-                .bodyToFlux(TPExCompany.class);
+                .bodyToFlux(TPExCompany.class)
+                .limitRate(WEBCLIENT_LIMIT_RATE);
 
         Flux<CompanyStatus> companyStatusFlux = webClient
                 .get()
                 .uri(COMPANY_URL)
                 .retrieve()
-                .bodyToFlux(CompanyStatus.class);
+                .bodyToFlux(CompanyStatus.class)
+                .limitRate(WEBCLIENT_LIMIT_RATE);
 
         Flux<CompanyStatus> totalCompanyFlux = tpExCompanyFlux
                 .filter(tpExCompany -> tpExCompany.getCode().length() != 6)
@@ -107,6 +110,7 @@ public class StockCrawlerImpl implements StockCrawler {
                 .uri(url)
                 .retrieve()
                 .bodyToFlux(TPExUrlObject.class)
+                .limitRate(WEBCLIENT_LIMIT_RATE)
                 .filter(tpExUrlObject -> Objects.nonNull(tpExUrlObject) && Objects.nonNull(tpExUrlObject.getAaData()))
                 .flatMap(tpExUrlObject -> Flux.fromArray(tpExUrlObject.getAaData()))
                 .filter(data -> data[0].length() != 6)

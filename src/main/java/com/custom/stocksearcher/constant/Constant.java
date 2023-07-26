@@ -52,6 +52,9 @@ public class Constant {
     public static final String CROSS_UP = "CrossUp";
     public static final String CROSS_DOWN = "CrossDown";
 
+
+    public static final int WEBCLIENT_LIMIT_RATE = 11;
+
     /**
      * 上市股票爬蟲參數
      */
