@@ -87,7 +87,7 @@ public class StockFinderImpl implements StockFinder {
                 .findByListedStockId_CodeAndDateBetweenOrderByDate(
                         codeParam.getCode(),
                         LocalDate.parse(codeParam.getBeginDate()),
-                        LocalDate.parse(codeParam.getEndDate()).plusDays(1)
+                        LocalDate.parse(codeParam.getEndDate())
                 ).map(ListedStock::getStockData);
     }
 
@@ -103,7 +103,7 @@ public class StockFinderImpl implements StockFinder {
                 .findByTpExStockId_CodeAndDateBetweenOrderByDate(
                         codeParam.getCode(),
                         LocalDate.parse(codeParam.getBeginDate()),
-                        LocalDate.parse(codeParam.getEndDate()).plusDays(1)
+                        LocalDate.parse(codeParam.getEndDate())
                 ).map(TPExStock::getStockData);
     }
 
