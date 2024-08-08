@@ -19,7 +19,7 @@ import java.time.LocalDate;
 import java.util.Objects;
 
 @SpringBootApplication
-//@EnableScheduling
+@EnableScheduling
 @EnableReactiveElasticsearchRepositories
 public class StockSearcherApplication {
 
