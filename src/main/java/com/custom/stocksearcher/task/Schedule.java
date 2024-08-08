@@ -105,7 +105,8 @@ public class Schedule {
                 .log()
                 .sequential()
                 .sort(Comparator.comparing(CodeWithYearMonth::getCode))
-                .map(codeWithYearMonth -> getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()));
+                .map(codeWithYearMonth -> getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()))
+                .distinct();
 
         urls.delayElements(Duration.ofMillis(LISTED_CRAWL_DURATION_MILLS))
                 .flatMap(stockCrawler::getListedStockDataFromTWSEApi)
