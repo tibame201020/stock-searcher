@@ -95,7 +95,7 @@ public class UserStorageImpl implements UserStorage {
 
     @Override
     public Flux<CodeParam> wrapperCodeParam(Flux<CompanyStatus> companyStatusFlux, CodeParam codeParam) {
-        return companyStatusFlux.flatMap(
+        return companyStatusFlux.map(
                 companyStatus -> {
                     CodeParam actualCodeParam = new CodeParam();
 
@@ -106,12 +106,13 @@ public class UserStorageImpl implements UserStorage {
                     actualCodeParam.setKlineCnt(codeParam.getKlineCnt());
                     actualCodeParam.setLastOpenCalcLimit(codeParam.getLastOpenCalcLimit());
                     actualCodeParam.setLastCloseCalcLimit(codeParam.getLastCloseCalcLimit());
-                    actualCodeParam.setClosingPriceCompareTarget(codeParam.getClosingPriceCompareTarget());
+                    actualCodeParam.setClosingPriceCompareTargetHigher(codeParam.getClosingPriceCompareTargetHigher());
+                    actualCodeParam.setClosingPriceCompareTargetLower(codeParam.getClosingPriceCompareTargetLower());
                     actualCodeParam.setCandlestickTypeList(codeParam.getCandlestickTypeList());
                     actualCodeParam.setPriceLowLimit(codeParam.getPriceLowLimit());
                     actualCodeParam.setPriceHighLimit(codeParam.getPriceHighLimit());
 
-                    return Mono.just(actualCodeParam);
+                    return actualCodeParam;
                 }
         );
     }

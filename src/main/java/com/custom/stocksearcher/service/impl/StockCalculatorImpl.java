@@ -8,6 +8,7 @@ import com.custom.stocksearcher.service.StockCandlestick;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuples;
 
 import java.math.BigDecimal;
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 @Service
@@ -107,7 +109,7 @@ public class StockCalculatorImpl implements StockCalculator {
                 .groupBy(StockMAResult::getDate)
                 .flatMap(group -> group
                         .collectList()
-                        .flatMap(stockMAResults -> {
+                        .map(stockMAResults -> {
                             StockMAResult mergedResult = new StockMAResult();
                             mergedResult.setCode(code);
                             mergedResult.setDate(group.key());
@@ -130,7 +132,7 @@ public class StockCalculatorImpl implements StockCalculator {
                                         }
                                     }
                             );
-                            return Mono.just(mergedResult);
+                            return mergedResult;
                         }))
                 .filter(stockMAResult -> stockMAResult.getDate().isAfter(beginDate) && stockMAResult.getDate().isBefore(endDate))
                 .sort(Comparator.comparing(StockMAResult::getDate));
@@ -206,8 +208,11 @@ public class StockCalculatorImpl implements StockCalculator {
     private Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, int period) {
         return stockDataFlux
                 .buffer(period, 1)
+                .parallel()
+                .runOn(Schedulers.parallel())
                 .filter(list -> list.size() >= period)
-                .flatMap(window -> Mono.just(calcStockMa(window, period)));
+                .map(window -> calcStockMa(window, period))
+                .sequential();
     }
 
 

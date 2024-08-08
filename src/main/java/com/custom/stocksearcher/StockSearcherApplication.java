@@ -19,7 +19,7 @@ import java.time.LocalDate;
 import java.util.Objects;
 
 @SpringBootApplication
-@EnableScheduling
+//@EnableScheduling
 @EnableReactiveElasticsearchRepositories
 public class StockSearcherApplication {
 
@@ -41,7 +41,7 @@ public class StockSearcherApplication {
                 .clientConnector(new ReactorClientHttpConnector(HttpClient.create().followRedirect(true)))
                 .exchangeStrategies(ExchangeStrategies
                         .builder()
-                        .codecs(config -> config.defaultCodecs().maxInMemorySize(1048576 * 100))
+                        .codecs(config -> config.defaultCodecs().maxInMemorySize(1048576 * 2000))
                         .build())
                 .build();
     }

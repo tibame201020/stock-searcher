@@ -41,7 +41,14 @@ public class CodeParam implements Serializable {
     private BigDecimal lastOpenCalcLimit;
     private BigDecimal lastCloseCalcLimit;
 
-    private String closingPriceCompareTarget;
+    /**
+     * 收盤價要高於季線條件
+     */
+    private String closingPriceCompareTargetHigher;
+    /**
+     * 收盤價要高於低於條件
+     */
+    private String closingPriceCompareTargetLower;
 
     private List<String> candlestickTypeList;
 

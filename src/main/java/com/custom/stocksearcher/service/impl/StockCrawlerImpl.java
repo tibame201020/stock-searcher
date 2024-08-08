@@ -90,16 +90,18 @@ public class StockCrawlerImpl implements StockCrawler {
 
         Flux<CompanyStatus> totalCompanyFlux = tpExCompanyFlux
                 .filter(tpExCompany -> tpExCompany.getCode().length() != 6)
-                .flatMap(tpExCompany -> {
+                .map(tpExCompany -> {
                     CompanyStatus companyStatus = new CompanyStatus();
                     companyStatus.setCode(tpExCompany.getCode());
                     companyStatus.setName(tpExCompany.getName());
                     companyStatus.setTPE(true);
-                    return Mono.just(companyStatus);
+                    return companyStatus;
                 })
                 .concatWith(companyStatusFlux);
 
-        return companyStatusRepo.saveAll(totalCompanyFlux);
+        new Thread(() -> companyStatusRepo.saveAll(totalCompanyFlux)).start();
+
+        return totalCompanyFlux;
     }
 
     @Override

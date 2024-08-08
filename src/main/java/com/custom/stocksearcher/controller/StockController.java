@@ -12,13 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 處理stock相關
@@ -82,37 +80,58 @@ public class StockController {
                     stockMAParam.setEndDate(stockBumpy.getEndDate());
                     return getStockMa(stockMAParam).last(new StockMAResult())
                             .filter(stockMAResult -> null != stockMAResult.getPrice())
-                            .flatMap(stockMAResult -> {
-                                BigDecimal price = stockMAResult.getPrice();
-                                BigDecimal ma5 = stockMAResult.getMa5();
-                                BigDecimal ma10 = stockMAResult.getMa10();
-                                BigDecimal ma20 = stockMAResult.getMa20();
-                                BigDecimal ma60 = stockMAResult.getMa60();
-                                BigDecimal ma = BigDecimal.valueOf(-1);
-
-                                switch (codeParam.getClosingPriceCompareTarget()) {
-                                    case "none" -> {
-                                        stockBumpy.setLastStockMA(stockMAResult);
-                                        return Mono.just(stockBumpy);
-                                    }
-                                    case "MA5" ->
-                                            ma = ma5 != null ? ma5 : BigDecimal.ZERO;
-                                    case "MA10" ->
-                                            ma = ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
-                                    case "MA20" ->
-                                            ma = ma20 != null ? ma20 : ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
-                                    case "MA60" ->
-                                            ma = ma60 != null ? ma60 : ma20 != null ? ma20 : ma10 != null ? ma10 : ma5 != null ? ma5 : BigDecimal.ZERO;
-                                }
-
-                                if (price.compareTo(ma) >= 0) {
-                                    stockBumpy.setLastStockMA(stockMAResult);
-                                    return Mono.just(stockBumpy);
-                                } else {
-                                    return Mono.empty();
-                                }
-                            });
+                            .flatMap(stockMAResult -> filterClosingPriceWithMaPrice(stockMAResult, stockBumpy, codeParam.getClosingPriceCompareTargetHigher(),codeParam.getClosingPriceCompareTargetLower()));
                 });
+    }
+
+
+    /**
+     * 過濾收盤價格需高於或低於季線
+     * @param stockMAResult 季線價格 bean
+     * @param stockBumpy 計算結果
+     * @param maTargetHigher 需高於哪個季線
+     * @param maTargetLower 需低於哪個季線
+     * @return
+     */
+    private Mono<StockBumpy> filterClosingPriceWithMaPrice(StockMAResult stockMAResult, StockBumpy stockBumpy, String maTargetHigher, String maTargetLower) {
+        BigDecimal price = stockMAResult.getPrice();
+
+        BigDecimal maHigher = getMaTarget(stockMAResult, maTargetHigher);
+        BigDecimal maLower = getMaTarget(stockMAResult, maTargetLower);
+
+        if (Objects.isNull(maHigher) && Objects.isNull(maLower)) {
+            stockBumpy.setLastStockMA(stockMAResult);
+            return Mono.just(stockBumpy);
+        }
+
+        if ((Objects.nonNull(maHigher) && price.compareTo(maHigher) >= 0) && (Objects.nonNull(maLower) && price.compareTo(maLower) <= 0)) {
+            stockBumpy.setLastStockMA(stockMAResult);
+            return Mono.just(stockBumpy);
+        }
+
+        return Mono.empty();
+    }
+
+    /**
+     * 取得要比較的 ma price
+     * @param stockMAResult 季線價格 bean
+     * @param maTarget
+     * @return
+     */
+    private BigDecimal getMaTarget(StockMAResult stockMAResult, String maTarget) {
+        BigDecimal ma5 = stockMAResult.getMa5();
+        BigDecimal ma10 = stockMAResult.getMa10();
+        BigDecimal ma20 = stockMAResult.getMa20();
+        BigDecimal ma60 = stockMAResult.getMa60();
+
+        return switch (maTarget) {
+            case "none" -> null;
+            case "MA5" -> Optional.ofNullable(ma5).orElse(BigDecimal.ZERO);
+            case "MA10" -> Optional.ofNullable(ma10).orElse(BigDecimal.ZERO);
+            case "MA20" -> Optional.ofNullable(ma20).orElse(BigDecimal.ZERO);
+            case "MA60" -> Optional.ofNullable(ma60).orElse(BigDecimal.ZERO);
+            default -> BigDecimal.ZERO;
+        };
     }
 
     /**
@@ -130,7 +149,10 @@ public class StockController {
         Flux<CodeParam> codeParamFlux = userStorage.wrapperCodeParam(companyStatusFlux, codeParam);
 
         return codeParamFlux
+                .parallel()
+                .runOn(Schedulers.parallel())
                 .flatMap(this::getRangeOfHighAndLowPoint)
+                .sequential()
                 .filter(stockBumpy -> {
                     if (bumpyHighLimit.compareTo(BigDecimal.ZERO) != 0) {
                         return stockBumpy.getCalcResult().compareTo(bumpyHighLimit) < 0;

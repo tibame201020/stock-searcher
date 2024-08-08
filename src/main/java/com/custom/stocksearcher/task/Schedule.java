@@ -18,6 +18,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -58,13 +59,13 @@ public class Schedule {
     }
 
     /**
-     * 爬蟲主程式 (每一小時執行一次)
+     * 爬蟲主程式 (30min執行一次)
      * checkImportFile 匯入上市股票資料
      * checkImportTPExFile 匯入上櫃股票資料
      * takeListedStock 取得上市股票資料
      * takeTPExList 取得上櫃股票資料
      */
-    @Scheduled(fixedDelay = 1000 * 60 * 60)
+    @Scheduled(fixedDelay = 1000 * 60 * 30)
     public void crawlStockData() throws Exception {
         checkImportListedFile();
         checkImportTPExFile();
@@ -79,6 +80,8 @@ public class Schedule {
         Flux<CompanyStatus> companyStatusFlux = getCompaniesData();
 
         Flux<String> urls = companyStatusFlux
+                .parallel()
+                .runOn(Schedulers.parallel())
                 .filter(companyStatus -> !companyStatus.isTPE())
                 .map(CompanyStatus::getCode)
                 .flatMap(code ->
@@ -88,7 +91,7 @@ public class Schedule {
                                     listedStockId.setCode(code);
                                     ListedStock listedStock = new ListedStock();
                                     listedStock.setListedStockId(listedStockId);
-                                    listedStock.setDate(LocalDate.parse(STOCK_CRAWLER_BEGIN));
+                                    listedStock.setDate(LocalDate.parse(LISTED_STOCK_CRAWLER_BEGIN));
                                     return Mono.just(listedStock);
                                 })))
                 .filter(listedStock -> {
@@ -99,6 +102,8 @@ public class Schedule {
                     }
                 })
                 .flatMap(this::processCodeWithYearMonth)
+                .log()
+                .sequential()
                 .sort(Comparator.comparing(CodeWithYearMonth::getCode))
                 .map(codeWithYearMonth -> getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()));
 
@@ -152,7 +157,7 @@ public class Schedule {
     private void takeTPExList() {
         Mono<TPExStock> defaultTpExStockMono = Mono.defer(() -> {
             TPExStockId tpExStockId = new TPExStockId();
-            tpExStockId.setDate(LocalDate.parse(STOCK_CRAWLER_BEGIN));
+            tpExStockId.setDate(LocalDate.parse(TPEx_STOCK_CRAWLER_BEGIN));
             TPExStock tpExStock = new TPExStock();
             tpExStock.setTpExStockId(tpExStockId);
             return Mono.just(tpExStock);
