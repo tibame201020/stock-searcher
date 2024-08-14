@@ -106,8 +106,13 @@ public class StockCalculatorImpl implements StockCalculator {
         Flux<Integer> periods = Flux.just(5, 10, 20, 60);
 
         return periods
+                .parallel()
+                .runOn(Schedulers.parallel())
                 .flatMap(period -> getStockMa(stockDataFlux, period))
+                .sequential()
                 .groupBy(StockMAResult::getDate)
+                .parallel()
+                .runOn(Schedulers.parallel())
                 .flatMap(group -> group
                         .collectList()
                         .map(stockMAResults -> {
@@ -136,6 +141,7 @@ public class StockCalculatorImpl implements StockCalculator {
                             return mergedResult;
                         }))
                 .filter(stockMAResult -> stockMAResult.getDate().isAfter(beginDate) && stockMAResult.getDate().isBefore(endDate))
+                .sequential()
                 .sort(Comparator.comparing(StockMAResult::getDate));
     }
 
