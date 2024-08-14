@@ -95,16 +95,13 @@ public class StockController {
      */
     private Mono<StockBumpy> filterClosingPriceWithMaPrice(StockMAResult stockMAResult, StockBumpy stockBumpy, String maTargetHigher, String maTargetLower) {
         BigDecimal price = stockMAResult.getPrice();
+        Optional<BigDecimal> maHigher = Optional.ofNullable(getMaTarget(stockMAResult, maTargetHigher));
+        Optional<BigDecimal> maLower = Optional.ofNullable(getMaTarget(stockMAResult, maTargetLower));
 
-        BigDecimal maHigher = getMaTarget(stockMAResult, maTargetHigher);
-        BigDecimal maLower = getMaTarget(stockMAResult, maTargetLower);
+        boolean isValid = maHigher.map(higher -> price.compareTo(higher) >= 0).orElse(true) &&
+                maLower.map(lower -> price.compareTo(lower) <= 0).orElse(true);
 
-        if (Objects.isNull(maHigher) && Objects.isNull(maLower)) {
-            stockBumpy.setLastStockMA(stockMAResult);
-            return Mono.just(stockBumpy);
-        }
-
-        if ((Objects.nonNull(maHigher) && price.compareTo(maHigher) >= 0) && (Objects.nonNull(maLower) && price.compareTo(maLower) <= 0)) {
+        if (isValid) {
             stockBumpy.setLastStockMA(stockMAResult);
             return Mono.just(stockBumpy);
         }

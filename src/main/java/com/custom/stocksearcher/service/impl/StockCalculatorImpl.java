@@ -60,21 +60,6 @@ public class StockCalculatorImpl implements StockCalculator {
                             .multiply(BigDecimal.valueOf(100));
 
                     stockBumpy.setCalcResult(calcResult);
-
-                    StringBuilder stringBuilder = new StringBuilder();
-                    stringBuilder
-                            .append("\n===============================================\n")
-                            .append("股票代號: ").append(stockBumpy.getCode()).append("\n")
-                            .append("最高價日期: ").append(stockBumpy.getHighestDate()).append("\n")
-                            .append("最高價: ").append(stockBumpy.getHighestPrice()).append("\n")
-                            .append("最低價日期: ").append(stockBumpy.getLowestDate()).append("\n")
-                            .append("最低價: ").append(stockBumpy.getLowestPrice()).append("\n")
-                            .append("最低成交量日期: ").append(stockBumpy.getLowestTradeVolume()).append("\n")
-                            .append("最低成交量: ").append(stockBumpy.getLowestTradeVolume()).append("\n")
-                            .append("計算結果: ").append(stockBumpy.getCalcResult()).append("\n")
-                            .append("===============================================");
-                    sseService.pushLog(stringBuilder.toString(), log);
-
                     return Mono.just(stockBumpy);
                 }).flatMap(stockBumpy ->
                         companyStatusRepo
@@ -97,7 +82,23 @@ public class StockCalculatorImpl implements StockCalculator {
                                     return Mono.just(stockBumpy);
                                 }
                         )
-                );
+                ).map(stockBumpy -> {
+                    StringBuilder stringBuilder = new StringBuilder();
+                    stringBuilder
+                            .append("\n===============================================\n")
+                            .append("日期區間: ").append(stockBumpy.getBeginDate()).append(" - ").append(stockBumpy.getEndDate()).append("\n")
+                            .append("股票代號: ").append(stockBumpy.getCode()).append(" - ").append(stockBumpy.getName()).append("\n")
+                            .append("最高價日期: ").append(stockBumpy.getHighestDate()).append("\n")
+                            .append("最高價: ").append(stockBumpy.getHighestPrice()).append("\n")
+                            .append("最低價日期: ").append(stockBumpy.getLowestDate()).append("\n")
+                            .append("最低價: ").append(stockBumpy.getLowestPrice()).append("\n")
+                            .append("最低成交量日期: ").append(stockBumpy.getLowestTradeVolumeDate()).append("\n")
+                            .append("最低成交量: ").append(stockBumpy.getLowestTradeVolume()).append("\n")
+                            .append("計算結果: ").append(stockBumpy.getCalcResult()).append("\n")
+                            .append("===============================================");
+                    sseService.pushLog(stringBuilder.toString(), log);
+                    return stockBumpy;
+                });
     }
 
     @Override

@@ -9,7 +9,7 @@ services:
       - front2back
 
   app-backend:
-    image: tibame201020/stocker-searcher_backend:1.3.6
+    image: tibame201020/stocker-searcher_backend:1.3.7
     restart: always
     environment:
       - ES_HOST=app-elasticsearch
