@@ -9,5 +9,4 @@ import java.time.LocalDate;
 
 @Repository
 public interface CompanyStatusRepo extends ReactiveElasticsearchRepository<CompanyStatus, String> {
-    Flux<CompanyStatus> findByUpdateDate(LocalDate updateDate);
 }

@@ -21,7 +21,7 @@ services:
       - back2db
 
   app-crawler:
-    image: tibame201020/stocker-crawler:1.1.0
+    image: tibame201020/stocker-crawler:1.3.0
     restart: always
     environment:
       - ES_HOST=app-elasticsearch

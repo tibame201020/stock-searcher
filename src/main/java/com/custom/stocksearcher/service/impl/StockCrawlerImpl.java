@@ -89,7 +89,6 @@ public class StockCrawlerImpl implements StockCrawler {
                 .limitRate(WEBCLIENT_LIMIT_RATE);
 
         Flux<CompanyStatus> totalCompanyFlux = tpExCompanyFlux
-                .filter(tpExCompany -> tpExCompany.getCode().length() != 6)
                 .map(tpExCompany -> {
                     CompanyStatus companyStatus = new CompanyStatus();
                     companyStatus.setCode(tpExCompany.getCode());

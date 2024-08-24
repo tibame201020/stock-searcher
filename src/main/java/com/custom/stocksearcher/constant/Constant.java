@@ -6,14 +6,6 @@ import java.math.BigDecimal;
  * 常數
  */
 public class Constant {
-    public static final String FRONT_END_URL = "https://ftf7ff-4200.csb.app/";
-    public static final String LOCAL_4200 = "http://localhost:4200/";
-    public static final String LOCAL_URL = "http://localhost:9218/";
-    /**
-     * for 接受跨域請求使用
-     */
-    public static final String[] CORS_URLS = new String[]{FRONT_END_URL, LOCAL_4200, LOCAL_URL};
-
     /**
      * 取得股票資訊網址 填入西元年月日 & stockCode
      */
@@ -35,25 +27,8 @@ public class Constant {
      * 定義schedule爬蟲起始日期
      */
     public static final String LISTED_STOCK_CRAWLER_BEGIN = "2021-01-01";
-
     public static final String TPEx_STOCK_CRAWLER_BEGIN = "2021-11-01";
-
     public static final String STOCK_DATE_FORMAT = "yyyy/MM/dd";
-
-    /**
-     * K棒判斷常數
-     */
-    public static final String CandlestickType_BLACK = "BLACK";
-    public static final String CandlestickType_RED = "RED";
-    public static final String CandlestickType_GREEN = "GREEN";
-
-    public static final String DASH_LINE = "DashLine";
-    public static final String T_LINE_UP = "TLineUP";
-    public static final String T_LINE_DOWN = "TLineDown";
-    public static final String CROSS = "Cross";
-    public static final String CROSS_UP = "CrossUp";
-    public static final String CROSS_DOWN = "CrossDown";
-
 
     public static final int WEBCLIENT_LIMIT_RATE = 11;
 
@@ -62,17 +37,9 @@ public class Constant {
      */
     public static final long LISTED_CRAWL_DURATION_MILLS = 3000;
     public static final int LISTED_CRAWL_UPDATE_HOUR = 14;
-    public static final String LISTED_DATA_FILE_NAME = "stocksListed";
     /**
      * 上櫃股票爬蟲參數
      */
     public static final long TPEX_CRAWL_DURATION_MILLS = 1000;
-    public static final String TPEX_DATA_FILE_NAME = "stocksTPEX";
-
-    /**
-     * K棒判斷參數
-     */
-    public static final BigDecimal HAMMER_LIMIT = BigDecimal.valueOf(1.2);
-    public static final BigDecimal CYLINDER_LIMIT = BigDecimal.valueOf(0.2);
 
 }

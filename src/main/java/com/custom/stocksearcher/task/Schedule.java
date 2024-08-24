@@ -9,22 +9,14 @@ import com.custom.stocksearcher.models.tpex.TPExStockId;
 import com.custom.stocksearcher.provider.DateProvider;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
-import com.custom.stocksearcher.service.SSEService;
 import com.custom.stocksearcher.service.StockCrawler;
-import com.google.gson.Gson;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -40,22 +32,18 @@ import static com.custom.stocksearcher.constant.Constant.*;
  * 股價爬蟲Task
  */
 @Component
+@Slf4j
 public class Schedule {
-    private final Log log = LogFactory.getLog(this.getClass());
     private final StockCrawler stockCrawler;
     private final DateProvider dateProvider;
     private final TPExStockRepo tpExStockRepo;
     private final ListedStockRepo listedStockRepo;
-    private final Gson gson;
-    private final SSEService sseService;
 
-    public Schedule(StockCrawler stockCrawler, DateProvider dateProvider, TPExStockRepo tpExStockRepo, ListedStockRepo listedStockRepo, Gson gson, SSEService sseService) {
+    public Schedule(StockCrawler stockCrawler, DateProvider dateProvider, TPExStockRepo tpExStockRepo, ListedStockRepo listedStockRepo) {
         this.stockCrawler = stockCrawler;
         this.dateProvider = dateProvider;
         this.tpExStockRepo = tpExStockRepo;
         this.listedStockRepo = listedStockRepo;
-        this.gson = gson;
-        this.sseService = sseService;
     }
 
     /**
@@ -67,17 +55,15 @@ public class Schedule {
      */
     @Scheduled(fixedDelay = 1000 * 60 * 30)
     public void crawlStockData() throws Exception {
-        checkImportListedFile();
-        checkImportTPExFile();
-//        writeListedToFile();
-//        writeTPEXToFile();
+        takeListedStock();
+        takeTPExList();
     }
 
     /**
      * 上市股票爬蟲
      */
     private void takeListedStock() {
-        Flux<CompanyStatus> companyStatusFlux = getCompaniesData();
+        Flux<CompanyStatus> companyStatusFlux = getCompaniesData().log("[ company ]");
 
         Flux<String> urls = companyStatusFlux
                 .parallel()
@@ -111,12 +97,10 @@ public class Schedule {
         urls.delayElements(Duration.ofMillis(LISTED_CRAWL_DURATION_MILLS))
                 .flatMap(stockCrawler::getListedStockDataFromTWSEApi)
                 .subscribe(
-                        result -> sseService.pushLog(String.format("取得上市股票資料 : %s, %s", result.getListedStockId().getCode(), result.getListedStockId().getDate()), log),
-                        err -> log.error(String.format("取得上市股票資料錯誤: %s", err)),
-                        () -> sseService.pushLog("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat(), log)
+                        result -> log.info("取得上市股票資料 : {}, {}", result.getListedStockId().getCode(), result.getListedStockId().getDate()),
+                        err -> log.error("取得上市股票資料錯誤: " + err),
+                        () -> log.info("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
                 );
-
-
     }
 
     /**
@@ -187,9 +171,9 @@ public class Schedule {
         urls.delayElements(Duration.ofMillis(TPEX_CRAWL_DURATION_MILLS))
                 .flatMap(stockCrawler::getTPExStockFromTPEx)
                 .subscribe(
-                        result -> sseService.pushLog(String.format("取得上櫃股票資料 : %s, %s", result.getTpExStockId().getCode(), result.getTpExStockId().getDate()), log),
-                        err -> log.error(String.format("取得上櫃股票資料錯誤: %s", err)),
-                        () -> sseService.pushLog("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat(), log)
+                        result -> log.info("取得上櫃股票資料 : {}, {}", result.getTpExStockId().getCode(), result.getTpExStockId().getDate()),
+                        err -> log.error("取得上櫃股票資料錯誤: " + err),
+                        () -> log.info("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
                 );
     }
 
@@ -206,117 +190,6 @@ public class Schedule {
         return !sysDate.isEqual(updateDate) || (hour > LISTED_CRAWL_UPDATE_HOUR);
     }
 
-    /**
-     * 上櫃股價資料匯入
-     */
-    private void checkImportTPExFile() throws IOException {
-        Path path = Paths.get(TPEX_DATA_FILE_NAME);
-        boolean exists = Files.exists(path);
-        if (!exists) {
-            takeTPExList();
-            return;
-        }
-
-        String json = Files.readString(path);
-        String[] strArray = json.split("\n");
-
-        Flux.fromArray(strArray)
-                .flatMap(
-                        str -> Mono.just(gson.fromJson(str, TPExStock.class)))
-                .buffer()
-                .flatMap(tpExStockRepo::saveAll)
-                .subscribe(
-                        tpExStock -> sseService.pushLog("save to elasticsearch : " + tpExStock, log),
-                        err -> log.error("error : " + err.getMessage()),
-                        () -> {
-                            sseService.pushLog("import tpExStock finish at " + dateProvider.getSystemDateTimeFormat(), log);
-                            takeTPExList();
-                        }
-                );
-    }
-
-    /**
-     * 上市股價資料匯入
-     */
-    private void checkImportListedFile() throws IOException {
-        Path path = Paths.get(LISTED_DATA_FILE_NAME);
-        boolean exists = Files.exists(path);
-        if (!exists) {
-            takeListedStock();
-            return;
-        }
-
-        String json = Files.readString(path);
-        String[] strArray = json.split("\n");
-
-        Flux.fromArray(strArray)
-                .flatMap(
-                        str -> Mono.just(gson.fromJson(str, ListedStock.class)))
-                .buffer()
-                .flatMap(listedStockRepo::saveAll)
-                .subscribe(
-                        listedStock -> sseService.pushLog("save to elasticsearch : " + listedStock, log),
-                        err -> log.error("error : " + err.getMessage()),
-                        () -> {
-                            sseService.pushLog("import listedStock finish at " + dateProvider.getSystemDateTimeFormat(), log);
-                            takeListedStock();
-                        }
-                );
-    }
-
-    /**
-     * 上櫃股價資料匯出
-     */
-    private void writeTPEXToFile() {
-        Flux<TPExStock> tpExStockRepoAll = tpExStockRepo.findAll();
-        Flux<String> dataFlux = tpExStockRepoAll
-                .flatMap(tpExStock -> Flux.just(gson.toJson(tpExStock)));
-        Path path = Paths.get(TPEX_DATA_FILE_NAME);
-        writeFile(dataFlux, path).subscribe();
-    }
-
-    /**
-     * 上市股價資料匯出
-     */
-    private void writeListedToFile() {
-        Flux<ListedStock> stockMonthDataFlux = listedStockRepo.findAll();
-        Flux<String> dataFlux = stockMonthDataFlux
-                .flatMap(listedStock -> Flux.just(gson.toJson(listedStock)));
-        Path path = Paths.get(LISTED_DATA_FILE_NAME);
-        writeFile(dataFlux, path).subscribe();
-    }
-
-    /**
-     * 將data寫至path
-     *
-     * @param dataFlux 資料
-     * @param path     目標檔案
-     * @return Flux<String>
-     */
-    private Flux<String> writeFile(Flux<String> dataFlux, Path path) {
-        return Flux.using(
-                () -> Files.newBufferedWriter(path, StandardOpenOption.CREATE),
-                writer -> dataFlux.doOnNext(line -> {
-                    try {
-                        writer.write(line + System.lineSeparator());
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }),
-                writer -> {
-                    try {
-                        writer.flush();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                    try {
-                        writer.close();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-        );
-    }
 
     /**
      * 確認CompanyStatus是否有公司列表
@@ -324,10 +197,7 @@ public class Schedule {
      * 屬於前置作業
      */
     public Flux<CompanyStatus> getCompaniesData() {
-        return Flux.defer(() -> {
-            sseService.pushLog("update companies list", log);
-            return stockCrawler.getCompanies();
-        });
+        return Flux.defer(stockCrawler::getCompanies);
     }
 
 

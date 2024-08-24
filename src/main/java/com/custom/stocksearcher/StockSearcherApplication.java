@@ -1,8 +1,5 @@
 package com.custom.stocksearcher;
 
-import com.custom.stocksearcher.config.LocalDateTypeAdapter;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 import org.springframework.boot.SpringApplication;
@@ -15,7 +12,6 @@ import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
-import java.time.LocalDate;
 import java.util.Objects;
 
 @SpringBootApplication
@@ -25,13 +21,6 @@ public class StockSearcherApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(StockSearcherApplication.class, args);
-    }
-
-    @Bean
-    public Gson getGson() {
-        return new GsonBuilder()
-                .registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
-                .create();
     }
 
     @Bean
