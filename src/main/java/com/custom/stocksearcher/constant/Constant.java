@@ -26,8 +26,8 @@ public class Constant {
     /**
      * 定義schedule爬蟲起始日期
      */
-    public static final String LISTED_STOCK_CRAWLER_BEGIN = "2021-01-01";
-    public static final String TPEx_STOCK_CRAWLER_BEGIN = "2021-11-01";
+    public static final String LISTED_STOCK_CRAWLER_BEGIN = "2020-01-01";
+    public static final String TPEx_STOCK_CRAWLER_BEGIN = "2020-01-01";
     public static final String STOCK_DATE_FORMAT = "yyyy/MM/dd";
 
     public static final int WEBCLIENT_LIMIT_RATE = 11;

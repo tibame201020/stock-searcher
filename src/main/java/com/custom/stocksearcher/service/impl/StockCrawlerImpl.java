@@ -98,9 +98,7 @@ public class StockCrawlerImpl implements StockCrawler {
                 })
                 .concatWith(companyStatusFlux);
 
-        new Thread(() -> companyStatusRepo.saveAll(totalCompanyFlux)).start();
-
-        return totalCompanyFlux;
+        return companyStatusRepo.saveAll(totalCompanyFlux);
     }
 
     @Override
