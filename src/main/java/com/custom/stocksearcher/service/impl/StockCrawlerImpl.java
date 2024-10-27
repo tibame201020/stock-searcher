@@ -22,6 +22,8 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import static com.custom.stocksearcher.constant.Constant.*;
@@ -99,6 +101,22 @@ public class StockCrawlerImpl implements StockCrawler {
                 .concatWith(companyStatusFlux);
 
         return companyStatusRepo.saveAll(totalCompanyFlux);
+    }
+
+    @Override
+    public List<CompanyStatus> getListedCompanies() {
+        Iterable<CompanyStatus> listedCompanies = webClient
+                .get()
+                .uri(COMPANY_URL)
+                .retrieve()
+                .bodyToFlux(CompanyStatus.class)
+                .limitRate(WEBCLIENT_LIMIT_RATE)
+                .toIterable();
+
+        List<CompanyStatus> rtn = new ArrayList<>();
+        listedCompanies.forEach(rtn::add);
+
+        return rtn;
     }
 
     @Override

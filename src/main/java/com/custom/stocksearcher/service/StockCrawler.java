@@ -7,6 +7,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
+
 /**
  * 股價爬蟲Service
  */
@@ -28,6 +30,8 @@ public interface StockCrawler {
      * @return 公司名稱與股票代號列表
      */
     Flux<CompanyStatus> getCompanies();
+
+    List<CompanyStatus> getListedCompanies();
 
     /**
      * 從tpex取得股票資料(上櫃)
