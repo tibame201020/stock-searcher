@@ -105,16 +105,14 @@ public class StockCrawlerImpl implements StockCrawler {
 
     @Override
     public List<CompanyStatus> getListedCompanies() {
-        Iterable<CompanyStatus> listedCompanies = webClient
-                .get()
-                .uri(COMPANY_URL)
-                .retrieve()
-                .bodyToFlux(CompanyStatus.class)
-                .limitRate(WEBCLIENT_LIMIT_RATE)
-                .toIterable();
+        Iterable<CompanyStatus> companyStatuses = getCompanies().toIterable();
 
         List<CompanyStatus> rtn = new ArrayList<>();
-        listedCompanies.forEach(rtn::add);
+        for (CompanyStatus companyStatus : companyStatuses) {
+            if (!companyStatus.isTPE()) {
+                rtn.add(companyStatus);
+            }
+        }
 
         return rtn;
     }

@@ -57,7 +57,6 @@ public class Schedule {
      */
     @Scheduled(fixedDelay = 1000 * 60 * 60)
     public void crawlStockData() throws Exception {
-        getCompaniesData();
         takeListedStock();
         takeTPExList();
     }
