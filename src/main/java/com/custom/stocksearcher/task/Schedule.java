@@ -49,13 +49,13 @@ public class Schedule {
     }
 
     /**
-     * 爬蟲主程式 (60min執行一次)
+     * 爬蟲主程式 (30min執行一次)
      * checkImportFile 匯入上市股票資料
      * checkImportTPExFile 匯入上櫃股票資料
      * takeListedStock 取得上市股票資料
      * takeTPExList 取得上櫃股票資料
      */
-    @Scheduled(fixedDelay = 1000 * 60 * 60)
+    @Scheduled(fixedDelay = 1000 * 60 * 30)
     public void crawlStockData() throws Exception {
         takeListedStock();
         takeTPExList();
