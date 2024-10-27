@@ -25,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 import static com.custom.stocksearcher.constant.Constant.*;
 
@@ -47,13 +48,13 @@ public class Schedule {
     }
 
     /**
-     * 爬蟲主程式 (30min執行一次)
+     * 爬蟲主程式 (60min執行一次)
      * checkImportFile 匯入上市股票資料
      * checkImportTPExFile 匯入上櫃股票資料
      * takeListedStock 取得上市股票資料
      * takeTPExList 取得上櫃股票資料
      */
-    @Scheduled(fixedDelay = 1000 * 60 * 30)
+    @Scheduled(fixedDelay = 1000 * 60 * 60)
     public void crawlStockData() throws Exception {
         takeListedStock();
         takeTPExList();
@@ -94,13 +95,27 @@ public class Schedule {
                 .map(codeWithYearMonth -> getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth()))
                 .distinct();
 
-        urls.delayElements(Duration.ofMillis(LISTED_CRAWL_DURATION_MILLS))
-                .flatMap(stockCrawler::getListedStockDataFromTWSEApi)
-                .subscribe(
-                        result -> log.info("取得上市股票資料 : {}, {}", result.getListedStockId().getCode(), result.getListedStockId().getDate()),
-                        err -> log.error("取得上市股票資料錯誤: " + err),
-                        () -> log.info("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
-                );
+        Iterable<String> urlsIterable = urls.toIterable();
+
+        urlsIterable.forEach(url -> {
+            log.info("取得上市股票資料 : {}", url);
+            stockCrawler.getListedStockDataFromTWSEApi(url);
+            try {
+                Thread.sleep(LISTED_CRAWL_DURATION_MILLS);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        log.info("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat());
+
+//        urls.delayElements(Duration.ofMillis(LISTED_CRAWL_DURATION_MILLS))
+//                .flatMap(stockCrawler::getListedStockDataFromTWSEApi)
+//                .subscribe(
+//                        result -> log.info("取得上市股票資料 : {}, {}", result.getListedStockId().getCode(), result.getListedStockId().getDate()),
+//                        err -> log.error("取得上市股票資料錯誤: " + err),
+//                        () -> log.info("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
+//                );
     }
 
     /**
