@@ -105,7 +105,12 @@ public class StockCrawlerImpl implements StockCrawler {
 
     @Override
     public List<CompanyStatus> getListedCompanies() {
-        Iterable<CompanyStatus> companyStatuses = getCompanies().toIterable();
+        Iterable<CompanyStatus> companyStatuses;
+        try {
+            companyStatuses = getCompanies().toIterable();
+        } catch (Exception e) {
+            companyStatuses = companyStatusRepo.findAll().toIterable();
+        }
 
         List<CompanyStatus> rtn = new ArrayList<>();
         for (CompanyStatus companyStatus : companyStatuses) {

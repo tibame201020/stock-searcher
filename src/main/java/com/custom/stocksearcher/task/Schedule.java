@@ -22,10 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static com.custom.stocksearcher.constant.Constant.*;
@@ -41,11 +38,14 @@ public class Schedule {
     private final TPExStockRepo tpExStockRepo;
     private final ListedStockRepo listedStockRepo;
 
+    private final Queue<String> listedStockUrlQueue;
+
     public Schedule(StockCrawler stockCrawler, DateProvider dateProvider, TPExStockRepo tpExStockRepo, ListedStockRepo listedStockRepo) {
         this.stockCrawler = stockCrawler;
         this.dateProvider = dateProvider;
         this.tpExStockRepo = tpExStockRepo;
         this.listedStockRepo = listedStockRepo;
+        this.listedStockUrlQueue = new LinkedList<>();
     }
 
     /**
@@ -61,12 +61,24 @@ public class Schedule {
         takeTPExList();
     }
 
+    @Scheduled(fixedDelay = 1000 * 3)
+    public void crawlListStockData() {
+        if (listedStockUrlQueue.isEmpty()) {
+            return;
+        }
+        String url = listedStockUrlQueue.poll();
+        stockCrawler.getListedStockDataFromTWSEApi(url).subscribe(
+                result -> log.info("取得上市股票資料 {}, {}", result.getListedStockId().getCode(), result.getDate())
+        );
+
+    }
+
     /**
      * 上市股票爬蟲
      */
-    private void takeListedStock() throws InterruptedException {
+    private void takeListedStock() {
+        listedStockUrlQueue.clear();
         List<CompanyStatus> companyStatusList = stockCrawler.getListedCompanies();
-        List<String> urls = new ArrayList<>();
 
         for (CompanyStatus companyStatus : companyStatusList) {
             if (!companyStatus.isTPE()) {
@@ -88,21 +100,33 @@ public class Schedule {
 
                     for (CodeWithYearMonth codeWithYearMonth:codeWithYearMonthList) {
                         String url = getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth());
-                        urls.add(url);
+                        listedStockUrlQueue.add(url);
                     }
                 }
+
+                ListedStock earlyListedStock = listedStockRepo.findFirstByListedStockId_CodeOrderByDate(code)
+                        .switchIfEmpty(Mono.defer(() -> {
+                            ListedStockId listedStockId = new ListedStockId();
+                            listedStockId.setCode(code);
+                            ListedStock newListedStock = new ListedStock();
+                            newListedStock.setListedStockId(listedStockId);
+                            newListedStock.setDate(LocalDate.parse(LISTED_STOCK_CRAWLER_BEGIN));
+                            return Mono.just(newListedStock);
+                        }))
+                        .block();
+
+                if (earlyListedStock != null && (Objects.isNull(earlyListedStock.getUpdateDate()) || filterListedStock(earlyListedStock))) {
+                    List<CodeWithYearMonth> codeWithYearMonthList = processEarlyCodeWithYearMonthList(earlyListedStock);
+
+                    for (CodeWithYearMonth codeWithYearMonth:codeWithYearMonthList) {
+                        String url = getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth());
+                        listedStockUrlQueue.add(url);
+                    }
+                }
+
+
             }
         }
-
-        log.info("上市股票資料更新開始: " + dateProvider.getSystemDateTimeFormat());
-
-        for (String url : urls) {
-            log.info("取得上市股票資料 {}", url);
-            stockCrawler.getListedStockDataFromTWSEApi(url).subscribe();
-            Thread.sleep(LISTED_CRAWL_DURATION_MILLS);
-        }
-
-        log.info("上市股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat());
     }
 
     /**
@@ -235,6 +259,24 @@ public class Schedule {
 
     private List<CodeWithYearMonth> processCodeWithYearMonthList(ListedStock listedStock) {
         List<YearMonth> yearMonths = dateProvider.calculateMonthList(listedStock.getDate(), LocalDate.now());
+        return yearMonths.stream().map(yearMonth -> {
+            CodeWithYearMonth codeWithYearMonth = new CodeWithYearMonth();
+            codeWithYearMonth.setCode(listedStock.getListedStockId().getCode());
+            codeWithYearMonth.setYearMonth(yearMonth);
+
+            return codeWithYearMonth;
+        }).toList();
+    }
+
+    private List<CodeWithYearMonth> processEarlyCodeWithYearMonthList(ListedStock listedStock) {
+        YearMonth stockYearMonth = YearMonth.of(listedStock.getDate().getYear(), listedStock.getDate().getMonth());
+        YearMonth crawlYearMonth = YearMonth.of(LocalDate.parse(LISTED_STOCK_CRAWLER_BEGIN).getYear(), LocalDate.parse(LISTED_STOCK_CRAWLER_BEGIN).getMonth());
+
+        if (stockYearMonth.compareTo(crawlYearMonth) <= 0) {
+            return List.of();
+        }
+
+        List<YearMonth> yearMonths = dateProvider.calculateMonthList(LocalDate.parse(LISTED_STOCK_CRAWLER_BEGIN), listedStock.getDate());
         return yearMonths.stream().map(yearMonth -> {
             CodeWithYearMonth codeWithYearMonth = new CodeWithYearMonth();
             codeWithYearMonth.setCode(listedStock.getListedStockId().getCode());

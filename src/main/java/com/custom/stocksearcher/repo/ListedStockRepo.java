@@ -12,4 +12,6 @@ import java.time.LocalDate;
 @Repository
 public interface ListedStockRepo extends ReactiveElasticsearchRepository<ListedStock, ListedStockId> {
     Mono<ListedStock> findFirstByListedStockId_CodeOrderByDateDesc(String code);
+
+    Mono<ListedStock> findFirstByListedStockId_CodeOrderByDate(String code);
 }
