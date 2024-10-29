@@ -3,6 +3,11 @@ services:
   app-frontend:
     image: tibame201020/stocker-searcher_frontend:1.4.0
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - 9218:80
     networks:
@@ -11,6 +16,11 @@ services:
   app-backend:
     image: tibame201020/stocker-searcher_backend:1.4.0
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       - ES_HOST=app-elasticsearch
       - TZ=Asia/Taipei
@@ -23,6 +33,11 @@ services:
   app-crawler:
     image: tibame201020/stocker-crawler:2.3.0
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       - ES_HOST=app-elasticsearch
       - TZ=Asia/Taipei
@@ -31,6 +46,11 @@ services:
 
   app-elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.7.1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - 9200:9200
       - 9300:9300
