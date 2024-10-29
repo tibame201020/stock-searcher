@@ -15,7 +15,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -23,7 +22,6 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Stream;
 
 import static com.custom.stocksearcher.constant.Constant.*;
 
@@ -37,8 +35,9 @@ public class Schedule {
     private final DateProvider dateProvider;
     private final TPExStockRepo tpExStockRepo;
     private final ListedStockRepo listedStockRepo;
-
     private final Queue<String> listedStockUrlQueue;
+
+    private final Queue<String> tpexStockUrlQueue;
 
     public Schedule(StockCrawler stockCrawler, DateProvider dateProvider, TPExStockRepo tpExStockRepo, ListedStockRepo listedStockRepo) {
         this.stockCrawler = stockCrawler;
@@ -46,6 +45,7 @@ public class Schedule {
         this.tpExStockRepo = tpExStockRepo;
         this.listedStockRepo = listedStockRepo;
         this.listedStockUrlQueue = new LinkedList<>();
+        this.tpexStockUrlQueue = new LinkedList<>();
     }
 
     /**
@@ -55,34 +55,98 @@ public class Schedule {
      * takeListedStock 取得上市股票資料
      * takeTPExList 取得上櫃股票資料
      */
-    @Scheduled(fixedDelay = 1000 * 60 * 30)
-    public void crawlStockData() throws Exception {
-        takeListedStock();
+//    @Scheduled(fixedDelay = 1000 * 60 * 30)
+    public void crawlStockData() {
         takeTPExList();
     }
 
-    @Scheduled(fixedDelay = 1000 * 3)
-    public void crawlListStockData() {
+    @Scheduled(fixedDelay = 1000 * 60 * 60)
+    public void updateCompanies() throws Exception {
+        new Thread(() -> stockCrawler.getCompanies().subscribe()).start();
+    }
+
+    @Scheduled(fixedDelay = 1000 * 60 * 60 * 2)
+    public void updateListedCrawlQueue() {
+        new Thread(this::takeListedStock).start();
+    }
+
+    @Scheduled(fixedDelay = 1000 * 2)
+    public void queueConsumer() {
         if (listedStockUrlQueue.isEmpty()) {
+            log.info("取得上市股票資料 queue empty {}", dateProvider.getSystemDateTimeFormat());
             return;
         }
         String url = listedStockUrlQueue.poll();
-        stockCrawler.getListedStockDataFromTWSEApi(url).subscribe(
-                result -> log.info("取得上市股票資料 {}, {}", result.getListedStockId().getCode(), result.getDate())
-        );
+        log.info("[prepare] 上市股票資料 {}", url);
 
+        List<ListedStock> listedStockList = stockCrawler.fetchListedStockDataFromTWSEApi(url);
+
+        int retryCount = 0;
+        int maxRetries = 11;
+
+        while (listedStockList.isEmpty() && retryCount < maxRetries) {
+            log.info("[empty] fetch 資料為空 {}", url);
+            url = listedStockUrlQueue.poll();
+            if (null != url) {
+                log.info("[next] 上市股票資料 {}", url);
+                listedStockList = stockCrawler.fetchListedStockDataFromTWSEApi(url);
+                retryCount++;
+            } else {
+                log.info("取得上市股票資料 queue empty {}", dateProvider.getSystemDateTimeFormat());
+                break;
+            }
+        }
+
+        listedStockList.forEach(listedStock ->
+                log.info("[result] 取得上市股票資料 {}, {}", listedStock.getListedStockId().getCode(), listedStock.getDate()));
+        log.info("[remain] 上市股票 Queue: {}", listedStockUrlQueue.size());
+    }
+
+//    @Scheduled(fixedDelay = 1000)
+    public void tpexQueueConsumer() {
+        if (tpexStockUrlQueue.isEmpty()) {
+            log.info("取得上櫃股票資料 queue empty {}", dateProvider.getSystemDateTimeFormat());
+            return;
+        }
+        String url = tpexStockUrlQueue.poll();
+        log.info("[prepare] 上櫃股票資料 {}", url);
+
+        List<TPExStock> tpExStockList = stockCrawler.fetchTPExStockFromTPEx(url);
+
+        int retryCount = 0;
+        int maxRetries = 11;
+
+        while (tpExStockList.isEmpty() && retryCount < maxRetries) {
+            log.info("[empty] fetch 資料為空 {}", url);
+            url = tpexStockUrlQueue.poll();
+            if (null != url) {
+                log.info("[next] 上櫃股票資料 {}", url);
+                tpExStockList = stockCrawler.fetchTPExStockFromTPEx(url);
+                retryCount++;
+            } else {
+                log.info("取得上櫃股票資料 queue empty {}", dateProvider.getSystemDateTimeFormat());
+                break;
+            }
+        }
+
+        tpExStockList.forEach(result ->
+                log.info("[result] 取得上櫃股票資料 {}, {}", result.getTpExStockId().getCode(), result.getTpExStockId().getDate()));
+        log.info("[remain] 上櫃股票 Queue: {}", tpexStockUrlQueue.size());
     }
 
     /**
      * 上市股票爬蟲
      */
     private void takeListedStock() {
+        log.info("[start] 更新需爬蟲上市股票");
         listedStockUrlQueue.clear();
+        log.info("clear queue");
         List<CompanyStatus> companyStatusList = stockCrawler.getListedCompanies();
 
         for (CompanyStatus companyStatus : companyStatusList) {
             if (!companyStatus.isTPE()) {
                 String code = companyStatus.getCode();
+                List<CodeWithYearMonth> codeWithYearMonthList = new ArrayList<>();
 
                 ListedStock listedStock = listedStockRepo.findFirstByListedStockId_CodeOrderByDateDesc(code)
                         .switchIfEmpty(Mono.defer(() -> {
@@ -96,12 +160,7 @@ public class Schedule {
                         .block();
 
                 if (listedStock != null && (Objects.isNull(listedStock.getUpdateDate()) || filterListedStock(listedStock))) {
-                    List<CodeWithYearMonth> codeWithYearMonthList = processCodeWithYearMonthList(listedStock);
-
-                    for (CodeWithYearMonth codeWithYearMonth:codeWithYearMonthList) {
-                        String url = getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth());
-                        listedStockUrlQueue.add(url);
-                    }
+                    codeWithYearMonthList.addAll(processCodeWithYearMonthList(listedStock));
                 }
 
                 ListedStock earlyListedStock = listedStockRepo.findFirstByListedStockId_CodeOrderByDate(code)
@@ -116,17 +175,17 @@ public class Schedule {
                         .block();
 
                 if (earlyListedStock != null && (Objects.isNull(earlyListedStock.getUpdateDate()) || filterListedStock(earlyListedStock))) {
-                    List<CodeWithYearMonth> codeWithYearMonthList = processEarlyCodeWithYearMonthList(earlyListedStock);
-
-                    for (CodeWithYearMonth codeWithYearMonth:codeWithYearMonthList) {
-                        String url = getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth());
-                        listedStockUrlQueue.add(url);
-                    }
+                    codeWithYearMonthList.addAll(processEarlyCodeWithYearMonthList(earlyListedStock));
                 }
 
-
+                codeWithYearMonthList.stream().distinct()
+                        .forEach(codeWithYearMonth -> {
+                            String url = getTwseUrl(codeWithYearMonth.getCode(), codeWithYearMonth.getYearMonth());
+                            listedStockUrlQueue.add(url);
+                        });
             }
         }
+        log.info("[end] 更新需爬蟲上市股票");
     }
 
     /**
@@ -159,13 +218,13 @@ public class Schedule {
         }
 
         return true;
-
     }
 
     /**
      * 上櫃股票爬蟲
      */
     private void takeTPExList() {
+        tpexStockUrlQueue.clear();
         Mono<TPExStock> defaultTpExStockMono = Mono.defer(() -> {
             TPExStockId tpExStockId = new TPExStockId();
             tpExStockId.setDate(LocalDate.parse(TPEx_STOCK_CRAWLER_BEGIN));
@@ -194,13 +253,15 @@ public class Schedule {
                 .map(date -> dateProvider.localDateToString(date, STOCK_DATE_FORMAT))
                 .map(dateStr -> String.format(TPEx_LIST_URL, dateStr));
 
-        urls.delayElements(Duration.ofMillis(TPEX_CRAWL_DURATION_MILLS))
-                .flatMap(stockCrawler::getTPExStockFromTPEx)
-                .subscribe(
-                        result -> log.info("取得上櫃股票資料 : {}, {}", result.getTpExStockId().getCode(), result.getTpExStockId().getDate()),
-                        err -> log.error("取得上櫃股票資料錯誤: " + err),
-                        () -> log.info("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
-                );
+        urls.subscribe(tpexStockUrlQueue::offer);
+
+//        urls.delayElements(Duration.ofMillis(TPEX_CRAWL_DURATION_MILLS))
+//                .flatMap(stockCrawler::getTPExStockFromTPEx)
+//                .subscribe(
+//                        result -> log.info("取得上櫃股票資料 : {}, {}", result.getTpExStockId().getCode(), result.getTpExStockId().getDate()),
+//                        err -> log.error("取得上櫃股票資料錯誤: " + err),
+//                        () -> log.info("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
+//                );
     }
 
     private boolean filterTPExStock(TPExStock tpExStock) {
@@ -215,17 +276,6 @@ public class Schedule {
 
         return !sysDate.isEqual(updateDate) || (hour > LISTED_CRAWL_UPDATE_HOUR);
     }
-
-
-    /**
-     * 確認CompanyStatus是否有公司列表
-     * 若無 則從openapi撈取
-     * 屬於前置作業
-     */
-    public Flux<CompanyStatus> getCompaniesData() {
-        return Flux.defer(stockCrawler::getCompanies);
-    }
-
 
     /**
      * 取得twse url

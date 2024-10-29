@@ -15,6 +15,7 @@ import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockCrawler;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -22,9 +23,7 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 import static com.custom.stocksearcher.constant.Constant.*;
 
@@ -35,6 +34,7 @@ public class StockCrawlerImpl implements StockCrawler {
     private final CompanyStatusRepo companyStatusRepo;
     private final TPExStockRepo tpExStockRepo;
     private final DateProvider dateProvider;
+    private final RestTemplate restTemplate;
 
     public StockCrawlerImpl(WebClient webClient, ListedStockRepo listedStockRepo, CompanyStatusRepo companyStatusRepo, TPExStockRepo tpExStockRepo, DateProvider dateProvider) {
         this.webClient = webClient;
@@ -42,6 +42,7 @@ public class StockCrawlerImpl implements StockCrawler {
         this.companyStatusRepo = companyStatusRepo;
         this.tpExStockRepo = tpExStockRepo;
         this.dateProvider = dateProvider;
+        this.restTemplate = new RestTemplate();
     }
 
 
@@ -54,7 +55,7 @@ public class StockCrawlerImpl implements StockCrawler {
                 .uri(url)
                 .retrieve()
                 .bodyToFlux(StockBasicInfo.class)
-                .limitRate(WEBCLIENT_LIMIT_RATE)
+                .limitRate(500)
                 .filter(stockBasicInfo -> Objects.nonNull(stockBasicInfo) && Objects.nonNull(stockBasicInfo.getData()))
                 .flatMap(stockBasicInfo -> Flux.fromArray(stockBasicInfo.getData()))
                 .map(this::wrapperFromData)
@@ -75,7 +76,36 @@ public class StockCrawlerImpl implements StockCrawler {
     }
 
     @Override
+    public List<ListedStock> fetchListedStockDataFromTWSEApi(String url) {
+        String code = getUrlParam(url, "stockNo");
+
+        StockBasicInfo stockBasicInfo = restTemplate.postForObject(url, null, StockBasicInfo.class);
+
+        String[][] stockDataArray = Optional.ofNullable(stockBasicInfo)
+                .map(StockBasicInfo::getData)
+                .orElse(new String[][]{});
+
+        List<ListedStock> listedStockList = Arrays.stream(stockDataArray).map(this::wrapperFromData)
+                .map(stockData -> {
+                    ListedStockId listedStockId = new ListedStockId();
+                    listedStockId.setCode(code);
+                    listedStockId.setDate(stockData.getDate());
+                    ListedStock listedStock = new ListedStock();
+                    listedStock.setListedStockId(listedStockId);
+                    listedStock.setStockData(stockData);
+                    listedStock.setDate(stockData.getDate());
+                    listedStock.setUpdateDate(LocalDate.now());
+                    return listedStock;
+                }).toList();
+
+        new Thread(() -> listedStockRepo.saveAll(Flux.fromIterable(listedStockList)).subscribe()).start();
+
+        return listedStockList;
+    }
+
+    @Override
     public Flux<CompanyStatus> getCompanies() {
+        log.info("==== start getCompanies");
         Flux<TPExCompany> tpExCompanyFlux = webClient
                 .get()
                 .uri(TPEx_COMPANY_URL)
@@ -105,12 +135,7 @@ public class StockCrawlerImpl implements StockCrawler {
 
     @Override
     public List<CompanyStatus> getListedCompanies() {
-        Iterable<CompanyStatus> companyStatuses;
-        try {
-            companyStatuses = getCompanies().toIterable();
-        } catch (Exception e) {
-            companyStatuses = companyStatusRepo.findAll().toIterable();
-        }
+        Iterable<CompanyStatus> companyStatuses = companyStatusRepo.findAll().toIterable();
 
         List<CompanyStatus> rtn = new ArrayList<>();
         for (CompanyStatus companyStatus : companyStatuses) {
@@ -140,6 +165,24 @@ public class StockCrawlerImpl implements StockCrawler {
                 });
 
         return tpExStockRepo.saveAll(tpExStockFlux);
+    }
+
+    @Override
+    public List<TPExStock> fetchTPExStockFromTPEx(String url) {
+        String reportDate = getUrlParam(url, "d");
+        TPExUrlObject tpExUrlObject = restTemplate.postForObject(url, null, TPExUrlObject.class);
+
+        String[][] stockDataArray = Optional.ofNullable(tpExUrlObject)
+                .map(TPExUrlObject::getAaData)
+                .orElse(new String[][]{});
+
+        List<TPExStock> tpExStockList = Arrays.stream(stockDataArray)
+                .map(dataFromArray -> wrapperFromData(dataFromArray, reportDate))
+                        .toList();
+
+        new Thread(() -> tpExStockRepo.saveAll(Flux.fromIterable(tpExStockList)).subscribe()).start();
+
+        return tpExStockList;
     }
 
     /**

@@ -25,6 +25,13 @@ public interface StockCrawler {
     Flux<ListedStock> getListedStockDataFromTWSEApi(String url);
 
     /**
+     * 從twse取得股票資訊(上市)
+     * @param url 爬蟲網址
+     * @return List<ListedStock>
+     */
+    List<ListedStock> fetchListedStockDataFromTWSEApi(String url);
+
+    /**
      * 從twse open api 取得公司名稱與股票代號
      *
      * @return 公司名稱與股票代號列表
@@ -40,4 +47,6 @@ public interface StockCrawler {
      * @return Flux<TPExStock>
      */
     Flux<TPExStock> getTPExStockFromTPEx(String url);
+
+    List<TPExStock> fetchTPExStockFromTPEx(String url);
 }

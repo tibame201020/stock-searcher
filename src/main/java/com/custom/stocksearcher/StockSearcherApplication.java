@@ -39,7 +39,7 @@ public class StockSearcherApplication {
     public RestClient createElasticsearchClient() {
         String es_host = System.getenv("ES_HOST");
         if (Objects.isNull(es_host) || es_host.isEmpty()) {
-            es_host = "localhost";
+            es_host = "172.23.214.95";
         }
         HttpHost host = new HttpHost(es_host, 9200);
         return RestClient.builder(host).build();
