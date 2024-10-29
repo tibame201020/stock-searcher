@@ -148,32 +148,12 @@ public class StockCrawlerImpl implements StockCrawler {
     }
 
     @Override
-    public Flux<TPExStock> getTPExStockFromTPEx(String url) {
-        String reportDate = getUrlParam(url, "d");
-        Flux<TPExStock> tpExStockFlux = webClient
-                .post()
-                .uri(url)
-                .retrieve()
-                .bodyToFlux(TPExUrlObject.class)
-                .limitRate(WEBCLIENT_LIMIT_RATE)
-                .filter(tpExUrlObject -> Objects.nonNull(tpExUrlObject) && Objects.nonNull(tpExUrlObject.getAaData()))
-                .flatMap(tpExUrlObject -> Flux.fromArray(tpExUrlObject.getAaData()))
-                .filter(data -> data[0].length() != 6)
-                .flatMap(data -> {
-                    assert reportDate != null;
-                    return Flux.just(wrapperFromData(data, reportDate));
-                });
-
-        return tpExStockRepo.saveAll(tpExStockFlux);
-    }
-
-    @Override
     public List<TPExStock> fetchTPExStockFromTPEx(String url) {
-        String reportDate = getUrlParam(url, "d");
+        String reportDate = getUrlParam(url, "date");
         TPExUrlObject tpExUrlObject = restTemplate.postForObject(url, null, TPExUrlObject.class);
 
         String[][] stockDataArray = Optional.ofNullable(tpExUrlObject)
-                .map(TPExUrlObject::getAaData)
+                .map(TPExUrlObject::getStockData)
                 .orElse(new String[][]{});
 
         List<TPExStock> tpExStockList = Arrays.stream(stockDataArray)

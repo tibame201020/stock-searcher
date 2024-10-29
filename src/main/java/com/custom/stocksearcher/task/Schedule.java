@@ -55,11 +55,6 @@ public class Schedule {
      * takeListedStock 取得上市股票資料
      * takeTPExList 取得上櫃股票資料
      */
-//    @Scheduled(fixedDelay = 1000 * 60 * 30)
-    public void crawlStockData() {
-        takeTPExList();
-    }
-
     @Scheduled(fixedDelay = 1000 * 60 * 60)
     public void updateCompanies() throws Exception {
         new Thread(() -> stockCrawler.getCompanies().subscribe()).start();
@@ -71,7 +66,7 @@ public class Schedule {
     }
 
     @Scheduled(fixedDelay = 1000 * 2)
-    public void queueConsumer() {
+    public void listedCrawlQueueConsumer() {
         if (listedStockUrlQueue.isEmpty()) {
             log.info("取得上市股票資料 queue empty {}", dateProvider.getSystemDateTimeFormat());
             return;
@@ -102,8 +97,13 @@ public class Schedule {
         log.info("[remain] 上市股票 Queue: {}", listedStockUrlQueue.size());
     }
 
-//    @Scheduled(fixedDelay = 1000)
-    public void tpexQueueConsumer() {
+    @Scheduled(fixedDelay = 1000 * 60 * 30)
+    public void updateTpexCrawlQueue() {
+        takeTPExList();
+    }
+
+    @Scheduled(fixedDelay = 1000)
+    public void tpexCrawlQueueConsumer() {
         if (tpexStockUrlQueue.isEmpty()) {
             log.info("取得上櫃股票資料 queue empty {}", dateProvider.getSystemDateTimeFormat());
             return;
@@ -224,6 +224,7 @@ public class Schedule {
      * 上櫃股票爬蟲
      */
     private void takeTPExList() {
+        log.info("[start] 更新需爬蟲上櫃股票");
         tpexStockUrlQueue.clear();
         Mono<TPExStock> defaultTpExStockMono = Mono.defer(() -> {
             TPExStockId tpExStockId = new TPExStockId();
@@ -253,15 +254,11 @@ public class Schedule {
                 .map(date -> dateProvider.localDateToString(date, STOCK_DATE_FORMAT))
                 .map(dateStr -> String.format(TPEx_LIST_URL, dateStr));
 
-        urls.subscribe(tpexStockUrlQueue::offer);
+        urls.subscribe(url -> {
+            tpexStockUrlQueue.add(url);
+        });
 
-//        urls.delayElements(Duration.ofMillis(TPEX_CRAWL_DURATION_MILLS))
-//                .flatMap(stockCrawler::getTPExStockFromTPEx)
-//                .subscribe(
-//                        result -> log.info("取得上櫃股票資料 : {}, {}", result.getTpExStockId().getCode(), result.getTpExStockId().getDate()),
-//                        err -> log.error("取得上櫃股票資料錯誤: " + err),
-//                        () -> log.info("上櫃股票資料更新完畢: " + dateProvider.getSystemDateTimeFormat())
-//                );
+        log.info("[end] 更新需爬蟲上櫃股票");
     }
 
     private boolean filterTPExStock(TPExStock tpExStock) {

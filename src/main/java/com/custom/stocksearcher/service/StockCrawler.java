@@ -44,9 +44,7 @@ public interface StockCrawler {
      * 從tpex取得股票資料(上櫃)
      *
      * @param url 爬蟲網址
-     * @return Flux<TPExStock>
+     * @return List<TPExStock>
      */
-    Flux<TPExStock> getTPExStockFromTPEx(String url);
-
     List<TPExStock> fetchTPExStockFromTPEx(String url);
 }

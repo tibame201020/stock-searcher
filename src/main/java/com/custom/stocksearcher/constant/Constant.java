@@ -14,7 +14,8 @@ public class Constant {
     /**
      * 上櫃歷史股價 填入date ex:2022/03/01
      */
-    public static final String TPEx_LIST_URL = "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php?l=en-us&d=%s";
+//    public static final String TPEx_LIST_URL = "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php?l=en-us&d=%s";
+    public static final String TPEx_LIST_URL = "https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes?date=%s&response=json";
     /**
      * 取得所有上市公司名稱與股票代號
      */

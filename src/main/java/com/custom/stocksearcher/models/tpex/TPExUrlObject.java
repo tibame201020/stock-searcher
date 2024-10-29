@@ -16,9 +16,19 @@ import java.io.Serializable;
 @Getter
 @Setter
 public class TPExUrlObject implements Serializable {
+    @JsonProperty(value = "date")
+    private String dateStr;
 
-    @JsonProperty(value = "reportDate")
-    private String reportDate;
-    @JsonProperty(value = "aaData")
-    private String[][] aaData;
+    @JsonProperty(value = "tables")
+    private Table[] tables;
+
+    public String[][] getStockData() {
+        return tables[0].getData();
+    }
+}
+
+@Getter
+class Table {
+    @JsonProperty(value = "data")
+    private String [][] data;
 }
