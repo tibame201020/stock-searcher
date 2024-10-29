@@ -173,7 +173,9 @@ public class StockController {
         LocalDate endDate = LocalDate.parse(codeParam.getEndDate()).plusDays(1);
         codeParam.setBeginDate(beginDate.minusMonths(6).toString());
 
-        return stockCalculator.getStockMa(findStockInfo(codeParam), codeParam.getCode(), beginDate, endDate);
+        Flux<StockData> stockDataFlux = findStockInfo(codeParam).cache();
+
+        return stockCalculator.getStockMa(stockDataFlux, codeParam.getCode(), beginDate, endDate);
     }
 
     /**

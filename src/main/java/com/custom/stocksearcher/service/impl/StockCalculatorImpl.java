@@ -13,6 +13,7 @@ import reactor.util.function.Tuples;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -103,46 +104,47 @@ public class StockCalculatorImpl implements StockCalculator {
 
     @Override
     public Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, String code, LocalDate beginDate, LocalDate endDate) {
+        Flux<StockData> filteredData = stockDataFlux
+                .filter(data -> !data.getDate().isBefore(beginDate.minusMonths(3)) && !data.getDate().isAfter(endDate));
+
+        Flux<StockData> cachedData = filteredData.cache();
+
         Flux<Integer> periods = Flux.just(5, 10, 20, 60);
 
         return periods
-                .parallel()
-                .runOn(Schedulers.parallel())
-                .flatMap(period -> getStockMa(stockDataFlux, period))
-                .sequential()
+                .concatMap(period -> getStockMa(cachedData, period))
                 .groupBy(StockMAResult::getDate)
-                .parallel()
-                .runOn(Schedulers.parallel())
                 .flatMap(group -> group
                         .collectList()
+                        .publishOn(Schedulers.boundedElastic())
                         .map(stockMAResults -> {
                             StockMAResult mergedResult = new StockMAResult();
                             mergedResult.setCode(code);
                             mergedResult.setDate(group.key());
-                            stockMAResults.forEach(
-                                    stockMAResult -> {
-                                        if (null != stockMAResult.getMa5()) {
-                                            mergedResult.setMa5(stockMAResult.getMa5());
-                                        }
-                                        if (null != stockMAResult.getMa10()) {
-                                            mergedResult.setMa10(stockMAResult.getMa10());
-                                        }
-                                        if (null != stockMAResult.getMa20()) {
-                                            mergedResult.setMa20(stockMAResult.getMa20());
-                                        }
-                                        if (null != stockMAResult.getMa60()) {
-                                            mergedResult.setMa60(stockMAResult.getMa60());
-                                        }
-                                        if (null != stockMAResult.getPrice()) {
-                                            mergedResult.setPrice(stockMAResult.getPrice());
-                                        }
-                                    }
-                            );
+
+                            for (StockMAResult result : stockMAResults) {
+                                mergeMAResults(mergedResult, result);
+                            }
+
                             return mergedResult;
-                        }))
+                        })
+                )
+                .onBackpressureBuffer(1000)
                 .filter(stockMAResult -> stockMAResult.getDate().isAfter(beginDate) && stockMAResult.getDate().isBefore(endDate))
-                .sequential()
-                .sort(Comparator.comparing(StockMAResult::getDate));
+                .sort(Comparator.comparing(StockMAResult::getDate))
+                .onErrorResume(e -> {
+                    log.error("Error calculating MA: ", e);
+                    return Flux.empty();
+                })
+                .timeout(Duration.ofSeconds(15));
+    }
+
+    private void mergeMAResults(StockMAResult target, StockMAResult source) {
+        Optional.ofNullable(source.getMa5()).ifPresent(target::setMa5);
+        Optional.ofNullable(source.getMa10()).ifPresent(target::setMa10);
+        Optional.ofNullable(source.getMa20()).ifPresent(target::setMa20);
+        Optional.ofNullable(source.getMa60()).ifPresent(target::setMa60);
+        Optional.ofNullable(source.getPrice()).ifPresent(target::setPrice);
     }
 
     @Override
@@ -214,12 +216,11 @@ public class StockCalculatorImpl implements StockCalculator {
      */
     private Flux<StockMAResult> getStockMa(Flux<StockData> stockDataFlux, int period) {
         return stockDataFlux
-                .buffer(period, 1)
-                .parallel()
-                .runOn(Schedulers.parallel())
+                .window(period, 1)
+                .flatMap(Flux::collectList)
+                .publishOn(Schedulers.boundedElastic())
                 .filter(list -> list.size() >= period)
-                .map(window -> calcStockMa(window, period))
-                .sequential();
+                .map(window -> calcStockMa(window, period));
     }
 
 
