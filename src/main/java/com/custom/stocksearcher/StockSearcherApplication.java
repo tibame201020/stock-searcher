@@ -10,7 +10,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.elasticsearch.repository.config.EnableReactiveElasticsearchRepositories;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
@@ -19,7 +18,6 @@ import java.time.LocalDate;
 import java.util.Objects;
 
 @SpringBootApplication
-//@EnableScheduling
 @EnableReactiveElasticsearchRepositories
 public class StockSearcherApplication {
 

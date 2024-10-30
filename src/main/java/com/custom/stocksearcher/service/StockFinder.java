@@ -3,16 +3,12 @@ package com.custom.stocksearcher.service;
 import com.custom.stocksearcher.models.CodeParam;
 import com.custom.stocksearcher.models.CompanyStatus;
 import com.custom.stocksearcher.models.StockData;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Flux;
 
 /**
  * 股價查詢Service
  */
 public interface StockFinder {
-    Log log = LogFactory.getLog(StockFinder.class);
-
     /**
      * 查詢股價資訊
      *

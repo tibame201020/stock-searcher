@@ -5,8 +5,7 @@ import com.custom.stocksearcher.repo.CodeListRepo;
 import com.custom.stocksearcher.service.StockCalculator;
 import com.custom.stocksearcher.service.StockFinder;
 import com.custom.stocksearcher.service.UserStorage;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,8 +22,8 @@ import java.util.*;
  */
 @RestController
 @RequestMapping("/stocks")
+@Slf4j
 public class StockController {
-    private final Log log = LogFactory.getLog(this.getClass());
 
     private final StockFinder stockFinder;
     private final StockCalculator stockCalculator;
@@ -80,17 +79,18 @@ public class StockController {
                     stockMAParam.setEndDate(stockBumpy.getEndDate());
                     return getStockMa(stockMAParam).last(new StockMAResult())
                             .filter(stockMAResult -> null != stockMAResult.getPrice())
-                            .flatMap(stockMAResult -> filterClosingPriceWithMaPrice(stockMAResult, stockBumpy, codeParam.getClosingPriceCompareTargetHigher(),codeParam.getClosingPriceCompareTargetLower()));
+                            .flatMap(stockMAResult -> filterClosingPriceWithMaPrice(stockMAResult, stockBumpy, codeParam.getClosingPriceCompareTargetHigher(), codeParam.getClosingPriceCompareTargetLower()));
                 });
     }
 
 
     /**
      * 過濾收盤價格需高於或低於季線
-     * @param stockMAResult 季線價格 bean
-     * @param stockBumpy 計算結果
+     *
+     * @param stockMAResult  季線價格 bean
+     * @param stockBumpy     計算結果
      * @param maTargetHigher 需高於哪個季線
-     * @param maTargetLower 需低於哪個季線
+     * @param maTargetLower  需低於哪個季線
      * @return
      */
     private Mono<StockBumpy> filterClosingPriceWithMaPrice(StockMAResult stockMAResult, StockBumpy stockBumpy, String maTargetHigher, String maTargetLower) {
@@ -111,6 +111,7 @@ public class StockController {
 
     /**
      * 取得要比較的 ma price
+     *
      * @param stockMAResult 季線價格 bean
      * @param maTarget
      * @return

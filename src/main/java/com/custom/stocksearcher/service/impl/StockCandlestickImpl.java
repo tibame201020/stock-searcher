@@ -3,6 +3,7 @@ package com.custom.stocksearcher.service.impl;
 import com.custom.stocksearcher.models.CandlestickType;
 import com.custom.stocksearcher.models.StockData;
 import com.custom.stocksearcher.service.StockCandlestick;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -11,6 +12,7 @@ import java.math.RoundingMode;
 import static com.custom.stocksearcher.constant.Constant.*;
 
 @Service
+@Slf4j
 public class StockCandlestickImpl implements StockCandlestick {
 
     @Override
@@ -37,7 +39,7 @@ public class StockCandlestickImpl implements StockCandlestick {
         }
 
         if (CandlestickType.UnknownType.getName().equalsIgnoreCase(candlestickType.getName())) {
-            log.info("candlestickType = " + candlestickType.getName());
+            log.info("candlestickType {} ", candlestickType.getName());
         }
 
         return candlestickType;

@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   app-frontend:
-    image: tibame201020/stocker-searcher_frontend:1.4.0
+    image: tibame201020/stocker-searcher_frontend:1.5.0
     restart: always
     logging:
       driver: "json-file"
@@ -14,7 +14,7 @@ services:
       - front2back
 
   app-backend:
-    image: tibame201020/stocker-searcher_backend:1.4.0
+    image: tibame201020/stocker-searcher_backend:1.5.0
     restart: always
     logging:
       driver: "json-file"

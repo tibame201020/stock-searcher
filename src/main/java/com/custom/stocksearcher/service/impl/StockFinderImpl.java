@@ -9,6 +9,7 @@ import com.custom.stocksearcher.repo.CompanyStatusRepo;
 import com.custom.stocksearcher.repo.ListedStockRepo;
 import com.custom.stocksearcher.repo.TPExStockRepo;
 import com.custom.stocksearcher.service.StockFinder;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -17,6 +18,7 @@ import java.util.Comparator;
 import java.util.Objects;
 
 @Service
+@Slf4j
 public class StockFinderImpl implements StockFinder {
     private final ListedStockRepo listedStockRepo;
     private final CompanyStatusRepo companyStatusRepo;

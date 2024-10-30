@@ -2,9 +2,9 @@ package com.custom.stocksearcher.service.impl;
 
 import com.custom.stocksearcher.models.*;
 import com.custom.stocksearcher.repo.CompanyStatusRepo;
-import com.custom.stocksearcher.service.SSEService;
 import com.custom.stocksearcher.service.StockCalculator;
 import com.custom.stocksearcher.service.StockCandlestick;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -22,15 +22,14 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 @Service
+@Slf4j
 public class StockCalculatorImpl implements StockCalculator {
     private final StockCandlestick stockCandlestick;
     private final CompanyStatusRepo companyStatusRepo;
-    private final SSEService sseService;
 
-    public StockCalculatorImpl(StockCandlestick stockCandlestick, CompanyStatusRepo companyStatusRepo, SSEService sseService) {
+    public StockCalculatorImpl(StockCandlestick stockCandlestick, CompanyStatusRepo companyStatusRepo) {
         this.stockCandlestick = stockCandlestick;
         this.companyStatusRepo = companyStatusRepo;
-        this.sseService = sseService;
     }
 
     @Override
@@ -97,7 +96,7 @@ public class StockCalculatorImpl implements StockCalculator {
                             .append("最低成交量: ").append(stockBumpy.getLowestTradeVolume()).append("\n")
                             .append("計算結果: ").append(stockBumpy.getCalcResult()).append("\n")
                             .append("===============================================");
-                    sseService.pushLog(stringBuilder.toString(), log);
+                    log.info(stringBuilder.toString());
                     return stockBumpy;
                 });
     }
@@ -133,7 +132,7 @@ public class StockCalculatorImpl implements StockCalculator {
                 .filter(stockMAResult -> stockMAResult.getDate().isAfter(beginDate) && stockMAResult.getDate().isBefore(endDate))
                 .sort(Comparator.comparing(StockMAResult::getDate))
                 .onErrorResume(e -> {
-                    log.error("Error calculating MA: ", e);
+                    log.error("Error calculating MA {} ", e.getMessage());
                     return Flux.empty();
                 })
                 .timeout(Duration.ofSeconds(15));
