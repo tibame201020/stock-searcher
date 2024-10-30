@@ -31,7 +31,7 @@ services:
       - back2db
 
   app-crawler:
-    image: tibame201020/stocker-crawler:2.3.0
+    image: tibame201020/stocker-crawler:2.4.0
     restart: always
     logging:
       driver: "json-file"
